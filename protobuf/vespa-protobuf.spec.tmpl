@@ -65,7 +65,7 @@ source %{_devtoolset_enable} || true
 %endif
 mkdir build && cd build
 CXXFLAGS="-std=c++14 -g -O3" \
-../configure --prefix=%{_prefix} --libdir=%{_prefix}/lib64 %{?_configure_args}
+../configure --with-zlib --prefix=%{_prefix} --libdir=%{_prefix}/lib64 %{?_configure_args}
 make %{?_smp_mflags}
 
 %install
