@@ -76,7 +76,7 @@ make %{?_smp_mflags}
 %if 0%{?_devtoolset_enable:1}
 source %{_devtoolset_enable} || true
 %endif
-
+cd build
 %make_install
 
 %define _unpackaged_files_terminate_build 0
