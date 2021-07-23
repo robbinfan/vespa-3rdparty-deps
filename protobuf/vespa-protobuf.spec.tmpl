@@ -23,7 +23,6 @@ Patch0:         patches.protobuf-linker-maps.diff
 
 %if 0%{?el7}
 BuildRequires: zlib-devel
-Requires: zlib-devel
 %if 0%{?amzn2}
 BuildRequires: gcc10-c++%{?_isa}
 %define _configure_args CC=gcc10-gcc CXX=gcc10-g++ CC_FOR_BUILD=gcc10-gcc CXX_FOR_BUILD=gcc10-g++
@@ -51,6 +50,7 @@ This package contains protobuf runtime library for C++.
 %package devel
 Summary:        Protocol Buffers for C++ development
 Requires:       %{name} = %{version}-%{release}
+Requires:      zlib-devel
 
 %description devel
 This package contains protobuf compiler for C++ and C++ headers and libraries.
