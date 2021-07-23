@@ -70,7 +70,7 @@ mkdir -p build && cd build
                    -DCMAKE_BUILD_WITH_INSTALL_RPATH=true \
                    -DCMAKE_PREFIX_PATH=/opt/vespa-deps
 
-make -j4
+make %{?_smp_mflags}
 
 %install
 %if 0%{?_devtoolset_enable:1}
