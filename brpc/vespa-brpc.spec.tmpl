@@ -65,7 +65,10 @@ mkdir -p %{_target_platform}
 
 pushd %{_target_platform}
 
-%{cmake} .. -DCMAKE_PREFIX_PATH=/opt/vespa-deps
+%{cmake} ..  -DCMAKE_INSTALL_PREFIX=%{_prefix} \
+             -DCMAKE_INSTALL_RPATH=%{_prefix}/lib64 \
+             -DCMAKE_BUILD_WITH_INSTALL_RPATH=true \
+             -DCMAKE_PREFIX_PATH=/opt/vespa-deps
 
 make -j4
 popd
