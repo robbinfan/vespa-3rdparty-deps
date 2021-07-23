@@ -25,8 +25,8 @@ Source0:        https://github.com/apache/incubator-brpc/archive/refs/tags/%{ver
 %global __filter_GLIBC_PRIVATE 1
 
 %if 0%{?el7}
-BuildRequires:  gflags-devel >= 2.1
-BuildRequires:  leveldb-devel
+BuildRequires: gflags-devel >= 2.1
+BuildRequires: leveldb-devel
 BuildRequires: vespa-protobuf-devel >= 3.17.3-2.el7
 BuildRequires: vespa-openssl-devel >= 1.1.1k-1
 BuildRequires: cmake3
@@ -47,6 +47,10 @@ An industrial-grade RPC framework used throughout Baidu, with 1,000,000+ instanc
 %package devel
 Summary: The %{name} headers and shared development libraries
 Requires: %{name} = %{version}-%{release}
+Requires: gflags-devel
+Requires: vespa-protobuf-devel >= 3.17.3-2.el7
+Requires: vespa-openssl-devel >= 1.1.1k-1
+
 %description devel
 Headers and shared object symbolic links for the %{name} library.
 
