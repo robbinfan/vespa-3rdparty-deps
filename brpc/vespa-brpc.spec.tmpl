@@ -29,6 +29,8 @@ BuildRequires:  gflags-devel >= 2.1
 BuildRequires:  leveldb-devel
 BuildRequires: vespa-protobuf-devel >= 3.17.3-1.el7
 BuildRequires: vespa-openssl-devel >= 1.1.1k-1
+BuildRequires: cmake3
+%define _cmake_prog cmake3
 %if 0%{?amzn2}
 BuildRequires: gcc10-c++%{?_isa}
 %define _configure_args CC=gcc10-gcc CXX=gcc10-g++ CC_FOR_BUILD=gcc10-gcc CXX_FOR_BUILD=gcc10-g++
@@ -61,17 +63,14 @@ Static %{name} libraries.
 %if 0%{?_devtoolset_enable:1}
 source %{_devtoolset_enable} || true
 %endif
-mkdir -p %{_target_platform}
 
-pushd %{_target_platform}
-
-%{cmake} ..  -DCMAKE_INSTALL_PREFIX=%{_prefix} \
-             -DCMAKE_INSTALL_RPATH=%{_prefix}/lib64 \
-             -DCMAKE_BUILD_WITH_INSTALL_RPATH=true \
-             -DCMAKE_PREFIX_PATH=/opt/vespa-deps
+mkdir -p build && cd build
+%{_cmake_prog} ..  -DCMAKE_INSTALL_PREFIX=%{_prefix} \
+                   -DCMAKE_INSTALL_RPATH=%{_prefix}/lib64 \
+                   -DCMAKE_BUILD_WITH_INSTALL_RPATH=true \
+                   -DCMAKE_PREFIX_PATH=/opt/vespa-deps
 
 make -j4
-popd
 
 %install
 %if 0%{?_devtoolset_enable:1}
