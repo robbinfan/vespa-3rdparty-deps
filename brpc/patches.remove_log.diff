@@ -1,0 +1,777 @@
+diff --git a/src/brpc/channel_base.h b/src/brpc/channel_base.h
+index ed6ff24..132dd8f 100644
+--- a/src/brpc/channel_base.h
++++ b/src/brpc/channel_base.h
+@@ -21,7 +21,7 @@
+ 
+ #include <stdlib.h>
+ #include <ostream>
+-#include "butil/logging.h"
++//#include "butil/logging.h"
+ #include <google/protobuf/service.h>            // google::protobuf::RpcChannel
+ #include "brpc/describable.h"
+ 
+@@ -36,7 +36,7 @@ class ChannelBase : public google::protobuf::RpcChannel/*non-copyable*/,
+                     public Describable {
+ public:
+     virtual int Weight() {
+-        CHECK(false) << "Not implemented";
++        //CHECK(false) << "Not implemented";
+         abort();
+     };
+ 
+diff --git a/src/brpc/controller.h b/src/brpc/controller.h
+index e4e3533..354347b 100755
+--- a/src/brpc/controller.h
++++ b/src/brpc/controller.h
+@@ -845,11 +845,11 @@ std::ostream& operator<<(std::ostream& os, const Controller::LogPrefixDummy& p);
+ //     Set cntl->set_request_id(REQUEST_ID);
+ //   Standalone http client:
+ //     Set header 'X-REQUEST-ID'
+-#define CLOGD(cntl) LOG(DEBUG) << (cntl)->LogPrefix()
+-#define CLOGI(cntl) LOG(INFO) << (cntl)->LogPrefix()
+-#define CLOGW(cntl) LOG(WARNING) << (cntl)->LogPrefix()
+-#define CLOGE(cntl) LOG(ERROR) << (cntl)->LogPrefix()
+-#define CLOGF(cntl) LOG(FATAL) << (cntl)->LogPrefix()
+-#define CVLOG(v, cntl) VLOG(v) << (cntl)->LogPrefix()
++//#define CLOGD(cntl) LOG(DEBUG) << (cntl)->LogPrefix()
++//#define CLOGI(cntl) LOG(INFO) << (cntl)->LogPrefix()
++//#define CLOGW(cntl) LOG(WARNING) << (cntl)->LogPrefix()
++//#define CLOGE(cntl) LOG(ERROR) << (cntl)->LogPrefix()
++//#define CLOGF(cntl) LOG(FATAL) << (cntl)->LogPrefix()
++//#define CVLOG(v, cntl) VLOG(v) << (cntl)->LogPrefix()
+ 
+ #endif  // BRPC_CONTROLLER_H
+diff --git a/src/brpc/details/controller_private_accessor.h b/src/brpc/details/controller_private_accessor.h
+index 362c8f0..7319f19 100644
+--- a/src/brpc/details/controller_private_accessor.h
++++ b/src/brpc/details/controller_private_accessor.h
+@@ -58,7 +58,7 @@ public:
+     }
+ 
+     void move_in_server_receiving_sock(SocketUniquePtr& ptr) {
+-        CHECK(_cntl->_current_call.sending_sock == NULL);
++        //CHECK(_cntl->_current_call.sending_sock == NULL);
+         _cntl->_current_call.sending_sock.reset(ptr.release());
+     }
+ 
+diff --git a/src/brpc/details/server_private_accessor.h b/src/brpc/details/server_private_accessor.h
+index aacf283..c2d84dd 100644
+--- a/src/brpc/details/server_private_accessor.h
++++ b/src/brpc/details/server_private_accessor.h
+@@ -32,7 +32,7 @@ namespace brpc {
+ class ServerPrivateAccessor {
+ public:
+     explicit ServerPrivateAccessor(const Server* svr) {
+-        CHECK(svr);
++        //CHECK(svr);
+         _server = svr;
+     }
+ 
+diff --git a/src/brpc/details/sparse_minute_counter.h b/src/brpc/details/sparse_minute_counter.h
+index 3834afa..fba627b 100644
+--- a/src/brpc/details/sparse_minute_counter.h
++++ b/src/brpc/details/sparse_minute_counter.h
+@@ -131,7 +131,7 @@ void SparseMinuteCounter<T>::DestroyQueue(Q* q) {
+ 
+ template <typename T>
+ void SparseMinuteCounter<T>::Resize() {
+-    CHECK_LT(_q->capacity(), (size_t)60);
++    //CHECK_LT(_q->capacity(), (size_t)60);
+     uint32_t new_cap = std::min(2 * (uint32_t)_q->capacity(), 60u);
+     Q* new_q = CreateQueue(new_cap);
+     for (size_t i = 0; i < _q->size(); ++i) {
+diff --git a/src/brpc/extension_inl.h b/src/brpc/extension_inl.h
+index 8eede30..8b1a1c6 100644
+--- a/src/brpc/extension_inl.h
++++ b/src/brpc/extension_inl.h
+@@ -41,12 +41,12 @@ Extension<T>::~Extension() {
+ template <typename T>
+ int Extension<T>::Register(const std::string& name, T* instance) {
+     if (NULL == instance) {
+-        LOG(ERROR) << "instance to \"" << name << "\" is NULL";
++        //LOG(ERROR) << "instance to \"" << name << "\" is NULL";
+         return -1;
+     }
+     BAIDU_SCOPED_LOCK(_map_mutex);
+     if (_instance_map.seek(name) != NULL) {
+-        LOG(ERROR) << "\"" << name << "\" was registered";
++        //LOG(ERROR) << "\"" << name << "\" was registered";
+         return -1;
+     }
+     _instance_map[name] = instance;
+diff --git a/src/brpc/policy/http2_rpc_protocol.h b/src/brpc/policy/http2_rpc_protocol.h
+index 8574723..f185569 100644
+--- a/src/brpc/policy/http2_rpc_protocol.h
++++ b/src/brpc/policy/http2_rpc_protocol.h
+@@ -399,8 +399,8 @@ friend void InitFrameHandlers();
+ 
+ inline int H2Context::AllocateClientStreamId() {
+     if (RunOutStreams()) {
+-        LOG(WARNING) << "Fail to allocate new client stream, _last_sent_stream_id="
+-            << _last_sent_stream_id;
++        //LOG(WARNING) << "Fail to allocate new client stream, _last_sent_stream_id="
++        //    << _last_sent_stream_id;
+         return -1;
+     }
+     const int id = _last_sent_stream_id;
+diff --git a/src/brpc/policy/locality_aware_load_balancer.h b/src/brpc/policy/locality_aware_load_balancer.h
+index f4392f4..c9da06f 100644
+--- a/src/brpc/policy/locality_aware_load_balancer.h
++++ b/src/brpc/policy/locality_aware_load_balancer.h
+@@ -118,7 +118,7 @@ private:
+         butil::FlatMap<SocketId, size_t> server_map;
+ 
+         Servers() {
+-            CHECK_EQ(0, server_map.init(1024, 70));
++            //CHECK_EQ(0, server_map.init(1024, 70));
+         }
+ 
+         // Add diff to left_weight of all parent nodes of node `index'.
+diff --git a/src/brpc/policy/rtmp_protocol.h b/src/brpc/policy/rtmp_protocol.h
+index b5572c2..1a88d08 100644
+--- a/src/brpc/policy/rtmp_protocol.h
++++ b/src/brpc/policy/rtmp_protocol.h
+@@ -608,7 +608,7 @@ inline void WriteBigEndian2Bytes(char** buf, uint16_t val) {
+ }
+ inline void WriteBigEndian3Bytes(char** buf, uint32_t val) {
+     const char* p = (const char*)&val;
+-    CHECK_EQ(p[3], 0);
++    //CHECK_EQ(p[3], 0);
+     char* out = *buf;
+     out[0] = p[2];
+     out[1] = p[1];
+diff --git a/src/brpc/protocol.h b/src/brpc/protocol.h
+index c1e0602..f8fcea7 100755
+--- a/src/brpc/protocol.h
++++ b/src/brpc/protocol.h
+@@ -27,7 +27,7 @@
+ #include <gflags/gflags_declare.h>                 // DECLARE_xxx
+ #include "butil/endpoint.h"                         // butil::EndPoint
+ #include "butil/iobuf.h"
+-#include "butil/logging.h"
++//#include "butil/logging.h"
+ #include "brpc/options.pb.h"                  // ProtocolType
+ #include "brpc/socket_id.h"                   // SocketId
+ #include "brpc/parse_result.h"                // ParseResult
+@@ -221,7 +221,7 @@ public:
+         if (_size < N) {
+             return _arr[_size++];
+         } else {
+-            CHECK(false) << "push to a full array, cap=" << N;
++            //CHECK(false) << "push to a full array, cap=" << N;
+             static T dummy;
+             return dummy;
+         }
+diff --git a/src/brpc/redis_reply.h b/src/brpc/redis_reply.h
+index d2515d8..a608bcc 100644
+--- a/src/brpc/redis_reply.h
++++ b/src/brpc/redis_reply.h
+@@ -22,7 +22,7 @@
+ #include "butil/iobuf.h"                  // butil::IOBuf
+ #include "butil/strings/string_piece.h"   // butil::StringPiece
+ #include "butil/arena.h"                  // butil::Arena
+-#include "butil/logging.h"                // CHECK
++//#include "butil/logging.h"                // CHECK
+ #include "parse_result.h"                 // ParseError
+ 
+ 
+@@ -197,8 +197,8 @@ inline int64_t RedisReply::integer() const {
+     if (is_integer()) {
+         return _data.integer;
+     }
+-    CHECK(false) << "The reply is " << RedisReplyTypeToString(_type)
+-                 << ", not an integer";
++    //CHECK(false) << "The reply is " << RedisReplyTypeToString(_type)
++    //             << ", not an integer";
+     return 0;
+ }
+ 
+@@ -265,8 +265,8 @@ inline const char* RedisReply::c_str() const {
+             return _data.long_str;
+         }
+     }
+-    CHECK(false) << "The reply is " << RedisReplyTypeToString(_type)
+-                 << ", not a string";
++    //CHECK(false) << "The reply is " << RedisReplyTypeToString(_type)
++    //             << ", not a string";
+     return "";
+ }
+ 
+@@ -278,8 +278,8 @@ inline butil::StringPiece RedisReply::data() const {
+             return butil::StringPiece(_data.long_str, _length);
+         }
+     }
+-    CHECK(false) << "The reply is " << RedisReplyTypeToString(_type)
+-                 << ", not a string";
++    //CHECK(false) << "The reply is " << RedisReplyTypeToString(_type)
++    //             << ", not a string";
+     return butil::StringPiece();
+ }
+ 
+@@ -291,8 +291,8 @@ inline const char* RedisReply::error_message() const {
+             return _data.long_str;
+         }
+     }
+-    CHECK(false) << "The reply is " << RedisReplyTypeToString(_type)
+-                 << ", not an error";
++    //CHECK(false) << "The reply is " << RedisReplyTypeToString(_type)
++    //             << ", not an error";
+     return "";
+ }
+ 
+diff --git a/src/brpc/socket_inl.h b/src/brpc/socket_inl.h
+index 31ce6a9..c16a6a0 100644
+--- a/src/brpc/socket_inl.h
++++ b/src/brpc/socket_inl.h
+@@ -114,10 +114,10 @@ inline int Socket::Dereference() {
+             }
+             return 0;
+         }
+-        LOG(FATAL) << "Invalid SocketId=" << id;
++        //LOG(FATAL) << "Invalid SocketId=" << id;
+         return -1;
+     }
+-    LOG(FATAL) << "Over dereferenced SocketId=" << id;
++    //LOG(FATAL) << "Over dereferenced SocketId=" << id;
+     return -1;
+ }
+ 
+@@ -153,15 +153,15 @@ inline int Socket::Address(SocketId id, SocketUniquePtr* ptr) {
+                         return_resource(SlotOfSocketId(id));
+                     }
+                 } else {
+-                    CHECK(false) << "ref-version=" << ver1
+-                                 << " unref-version=" << ver2;
++                    //CHECK(false) << "ref-version=" << ver1
++                    //             << " unref-version=" << ver2;
+                 }
+             } else {
+-                CHECK_EQ(ver1, ver2);
++                //CHECK_EQ(ver1, ver2);
+                 // Addressed a free slot.
+             }
+         } else {
+-            CHECK(false) << "Over dereferenced SocketId=" << id;
++            //CHECK(false) << "Over dereferenced SocketId=" << id;
+         }
+     }
+     return -1;
+@@ -206,14 +206,14 @@ inline int Socket::AddressFailedAsWell(SocketId id, SocketUniquePtr* ptr) {
+                         return_resource(slot);
+                     }
+                 } else {
+-                    CHECK(false) << "ref-version=" << ver1
+-                                 << " unref-version=" << ver2;
++                    //CHECK(false) << "ref-version=" << ver1
++                    //             << " unref-version=" << ver2;
+                 }
+             } else {
+                 // Addressed a free slot.
+             }
+         } else {
+-            CHECK(false) << "Over dereferenced SocketId=" << id;
++            //CHECK(false) << "Over dereferenced SocketId=" << id;
+         }
+     }
+     return -1;    
+diff --git a/src/brpc/thrift_message.h b/src/brpc/thrift_message.h
+index a152b16..c612c73 100644
+--- a/src/brpc/thrift_message.h
++++ b/src/brpc/thrift_message.h
+@@ -198,7 +198,7 @@ T* ThriftFramedMessage::Cast() {
+ 
+     if (!body.empty()) {
+         if (!policy::ReadThriftStruct(body, _raw_instance, field_id)) {
+-            LOG(ERROR) << "Fail to parse " << butil::class_name<T>();
++            //LOG(ERROR) << "Fail to parse " << butil::class_name<T>();
+         }
+     }
+     return raw_msg;
+diff --git a/src/bthread/execution_queue_inl.h b/src/bthread/execution_queue_inl.h
+index 7911db6..2253d45 100644
+--- a/src/bthread/execution_queue_inl.h
++++ b/src/bthread/execution_queue_inl.h
+@@ -25,7 +25,7 @@
+ #include "butil/atomicops.h"             // butil::atomic
+ #include "butil/macros.h"                // BAIDU_CACHELINE_ALIGNMENT
+ #include "butil/memory/scoped_ptr.h"     // butil::scoped_ptr
+-#include "butil/logging.h"               // LOG
++//#include "butil/logging.h"               // LOG
+ #include "butil/time.h"                  // butil::cpuwide_time_ns
+ #include "bvar/bvar.h"                  // bvar::Adder
+ #include "bthread/butex.h"              // butex_construct
+diff --git a/src/bthread/mutex.h b/src/bthread/mutex.h
+index 257f179..cdcd91e 100644
+--- a/src/bthread/mutex.h
++++ b/src/bthread/mutex.h
+@@ -51,7 +51,7 @@ public:
+             throw std::system_error(std::error_code(ec, std::system_category()), "Mutex constructor failed");
+         }
+     }
+-    ~Mutex() { CHECK_EQ(0, bthread_mutex_destroy(&_mutex)); }
++    ~Mutex() { bthread_mutex_destroy(&_mutex); }
+     native_handler_type native_handler() { return &_mutex; }
+     void lock() {
+         int ec = bthread_mutex_lock(&_mutex);
+@@ -98,7 +98,7 @@ public:
+ #if !defined(NDEBUG)
+         const int rc = bthread_mutex_lock(_pmutex);
+         if (rc) {
+-            LOG(FATAL) << "Fail to lock bthread_mutex_t=" << _pmutex << ", " << berror(rc);
++            //LOG(FATAL) << "Fail to lock bthread_mutex_t=" << _pmutex << ", " << berror(rc);
+             _pmutex = NULL;
+         }
+ #else
+@@ -148,11 +148,11 @@ public:
+ 
+     void lock() {
+         if (!_mutex) {
+-            CHECK(false) << "Invalid operation";
++            //CHECK(false) << "Invalid operation";
+             return;
+         }
+         if (_owns_lock) {
+-            CHECK(false) << "Detected deadlock issue";     
++            //CHECK(false) << "Detected deadlock issue";     
+             return;
+         }
+         bthread_mutex_lock(_mutex);
+@@ -161,11 +161,11 @@ public:
+ 
+     bool try_lock() {
+         if (!_mutex) {
+-            CHECK(false) << "Invalid operation";
++            //CHECK(false) << "Invalid operation";
+             return false;
+         }
+         if (_owns_lock) {
+-            CHECK(false) << "Detected deadlock issue";     
++            //CHECK(false) << "Detected deadlock issue";     
+             return false;
+         }
+         _owns_lock = !bthread_mutex_trylock(_mutex);
+@@ -174,7 +174,7 @@ public:
+ 
+     void unlock() {
+         if (!_owns_lock) {
+-            CHECK(false) << "Invalid operation";
++            //CHECK(false) << "Invalid operation";
+             return;
+         }
+         if (_mutex) {
+diff --git a/src/bthread/task_group_inl.h b/src/bthread/task_group_inl.h
+index d48ceaa..b329554 100644
+--- a/src/bthread/task_group_inl.h
++++ b/src/bthread/task_group_inl.h
+@@ -88,7 +88,7 @@ inline void TaskGroup::push_rq(bthread_t tid) {
+         //   are busy at creating bthreads (proved by test_input_messenger in
+         //   brpc)
+         flush_nosignal_tasks();
+-        LOG_EVERY_SECOND(ERROR) << "_rq is full, capacity=" << _rq.capacity();
++        //LOG_EVERY_SECOND(ERROR) << "_rq is full, capacity=" << _rq.capacity();
+         // TODO(gejun): May cause deadlock when all workers are spinning here.
+         // A better solution is to pop and run existing bthreads, however which
+         // make set_remained()-callbacks do context switches and need extensive
+diff --git a/src/bthread/types.h b/src/bthread/types.h
+index 45bf4be..b394430 100644
+--- a/src/bthread/types.h
++++ b/src/bthread/types.h
+@@ -23,8 +23,9 @@
+ #define BTHREAD_TYPES_H
+ 
+ #include <stdint.h>                            // uint64_t
++#include <iostream>
+ #if defined(__cplusplus)
+-#include "butil/logging.h"                      // CHECK
++//#include "butil/logging.h"                      // CHECK
+ #endif
+ 
+ typedef uint64_t bthread_t;
+@@ -100,7 +101,7 @@ typedef struct bthread_attr_t {
+         keytable_pool = NULL;
+     }
+     bthread_attr_t operator|(unsigned other_flags) const {
+-        CHECK(!(other_flags & 7)) << "flags=" << other_flags;
++        //CHECK(!(other_flags & 7)) << "flags=" << other_flags;
+         bthread_attr_t tmp = *this;
+         tmp.flags |= (other_flags & ~(unsigned)7u);
+         return tmp;
+diff --git a/src/bthread/work_stealing_queue.h b/src/bthread/work_stealing_queue.h
+index 3750ac5..79932f6 100644
+--- a/src/bthread/work_stealing_queue.h
++++ b/src/bthread/work_stealing_queue.h
+@@ -24,7 +24,7 @@
+ 
+ #include "butil/macros.h"
+ #include "butil/atomicops.h"
+-#include "butil/logging.h"
++//#include "butil/logging.h"
+ 
+ namespace bthread {
+ 
+@@ -45,16 +45,16 @@ public:
+ 
+     int init(size_t capacity) {
+         if (_capacity != 0) {
+-            LOG(ERROR) << "Already initialized";
++            //LOG(ERROR) << "Already initialized";
+             return -1;
+         }
+         if (capacity == 0) {
+-            LOG(ERROR) << "Invalid capacity=" << capacity;
++            //LOG(ERROR) << "Invalid capacity=" << capacity;
+             return -1;
+         }
+         if (capacity & (capacity - 1)) {
+-            LOG(ERROR) << "Invalid capacity=" << capacity
+-                       << " which must be power of 2";
++            //LOG(ERROR) << "Invalid capacity=" << capacity
++            //           << " which must be power of 2";
+             return -1;
+         }
+         _buffer = new(std::nothrow) T[capacity];
+diff --git a/src/bvar/detail/agent_group.h b/src/bvar/detail/agent_group.h
+index ceb7c05..6363a8d 100644
+--- a/src/bvar/detail/agent_group.h
++++ b/src/bvar/detail/agent_group.h
+@@ -31,7 +31,7 @@
+ #include "butil/thread_local.h"              // thread_atexit
+ #include "butil/macros.h"                    // BAIDU_CACHELINE_ALIGNMENT
+ #include "butil/scoped_lock.h"
+-#include "butil/logging.h"
++//#include "butil/logging.h"
+ 
+ namespace bvar {
+ namespace detail {
+@@ -129,13 +129,13 @@ public:
+     // Note: May return non-null for unexist id, see notes on ThreadBlock
+     inline static Agent* get_or_create_tls_agent(AgentId id) {
+         if (__builtin_expect(id < 0, 0)) {
+-            CHECK(false) << "Invalid id=" << id;
++            //CHECK(false) << "Invalid id=" << id;
+             return NULL;
+         }
+         if (_s_tls_blocks == NULL) {
+             _s_tls_blocks = new (std::nothrow) std::vector<ThreadBlock *>;
+             if (__builtin_expect(_s_tls_blocks == NULL, 0)) {
+-                LOG(FATAL) << "Fail to create vector, " << berror();
++                //LOG(FATAL) << "Fail to create vector, " << berror();
+                 return NULL;
+             }
+             butil::thread_atexit(_destroy_tls_blocks);
+diff --git a/src/bvar/detail/combiner.h b/src/bvar/detail/combiner.h
+index 6a6ab80..b01f7af 100644
+--- a/src/bvar/detail/combiner.h
++++ b/src/bvar/detail/combiner.h
+@@ -296,7 +296,7 @@ friend class GlobalValue<self_type>;
+             // Create the agent
+             agent = AgentGroup::get_or_create_tls_agent(_id);
+             if (NULL == agent) {
+-                LOG(FATAL) << "Fail to create agent";
++                //LOG(FATAL) << "Fail to create agent";
+                 return NULL;
+             }
+         }
+diff --git a/src/bvar/detail/percentile.h b/src/bvar/detail/percentile.h
+index f04268d..48b6621 100644
+--- a/src/bvar/detail/percentile.h
++++ b/src/bvar/detail/percentile.h
+@@ -67,8 +67,8 @@ public:
+             std::sort(_samples, _samples + saved_num);
+             _sorted = true;
+         }
+-        CHECK_EQ(saved_num, _num_samples) << "You must call get_number() on"
+-            " a unchanging PercentileInterval";
++        //CHECK_EQ(saved_num, _num_samples) << "You must call get_number() on"
++        //    " a unchanging PercentileInterval";
+         return _samples[index];
+     }
+ 
+@@ -84,7 +84,7 @@ public:
+         }
+         BAIDU_CASSERT(SAMPLE_SIZE >= size2,
+                       must_merge_small_interval_into_larger_one_currently);
+-        CHECK_EQ(rhs._num_samples, rhs._num_added);
++        //CHECK_EQ(rhs._num_samples, rhs._num_added);
+         // Assume that the probability of each sample in |this| is a0/b0 and
+         // the probability of each sample in |rhs| is a1/b1.
+         // We are going to randomly pick some samples from |this| and |rhs| to
+@@ -97,13 +97,13 @@ public:
+         // |b1*SAMPLE_SIZE/(b0+b1)| from |rhs|.
+         if (_num_added + rhs._num_added <= SAMPLE_SIZE) {
+             // No sample should be dropped
+-            CHECK_EQ(_num_samples, _num_added)
+-                << "_num_added=" << _num_added
+-                << " rhs._num_added" << rhs._num_added
+-                << " _num_samples=" << _num_samples
+-                << " rhs._num_samples=" << rhs._num_samples
+-                << " SAMPLE_SIZE=" << SAMPLE_SIZE
+-                << " size2=" << size2;
++            //CHECK_EQ(_num_samples, _num_added)
++            //    << "_num_added=" << _num_added
++            //    << " rhs._num_added" << rhs._num_added
++            //    << " _num_samples=" << _num_samples
++            //    << " rhs._num_samples=" << rhs._num_samples
++            //    << " SAMPLE_SIZE=" << SAMPLE_SIZE
++            //    << " size2=" << size2;
+             memcpy(_samples + _num_samples, rhs._samples, 
+                    sizeof(_samples[0]) * rhs._num_samples);
+             _num_samples += rhs._num_samples;
+@@ -118,13 +118,13 @@ public:
+             //    num_remain < SAMPLE_SIZE = _num_added
+             size_t num_remain = round_of_expectation(
+                     _num_added * SAMPLE_SIZE, _num_added + rhs._num_added);
+-            CHECK_LE(num_remain, _num_samples);
++            //CHECK_LE(num_remain, _num_samples);
+             // Randomly drop samples of this
+             for (size_t i = _num_samples; i > num_remain; --i) {
+                 _samples[butil::fast_rand_less_than(i)] = _samples[i - 1];
+             }
+             const size_t num_remain_from_rhs = SAMPLE_SIZE - num_remain;
+-            CHECK_LE(num_remain_from_rhs, rhs._num_samples);
++            //CHECK_LE(num_remain_from_rhs, rhs._num_samples);
+             // Have to copy data from rhs to shuffle since it's const
+             DEFINE_SMALL_ARRAY(uint32_t, tmp, rhs._num_samples, 64);
+             memcpy(tmp, rhs._samples, sizeof(uint32_t) * rhs._num_samples);
+@@ -134,7 +134,7 @@ public:
+                 tmp[index] = tmp[rhs._num_samples - i - 1];
+             }
+             _num_samples = num_remain;
+-            CHECK_EQ(_num_samples, SAMPLE_SIZE);
++            //CHECK_EQ(_num_samples, SAMPLE_SIZE);
+         }
+         _num_added += rhs._num_added;
+     }
+@@ -142,7 +142,7 @@ public:
+     // Randomly pick n samples from mutable_rhs to |this|
+     template <size_t size2>
+     void merge_with_expectation(PercentileInterval<size2>& mutable_rhs, size_t n) {
+-        CHECK(n <= mutable_rhs._num_samples);
++        //CHECK(n <= mutable_rhs._num_samples);
+         _num_added += mutable_rhs._num_added;
+         if (_num_samples + n <= SAMPLE_SIZE && n == mutable_rhs._num_samples) {
+             memcpy(_samples + _num_samples, mutable_rhs._samples, sizeof(_samples[0]) * n);
+@@ -168,7 +168,7 @@ public:
+     // Returns true if the input was stored.
+     bool add32(uint32_t x) {
+         if (BAIDU_UNLIKELY(_num_samples >= SAMPLE_SIZE)) {
+-            LOG(ERROR) << "This interval was full";
++            //LOG(ERROR) << "This interval was full";
+             return false;
+         }
+         ++_num_added;
+@@ -309,7 +309,7 @@ friend class AddLatency;
+             }
+             n -= invl.added_count();
+         }
+-        CHECK(false) << "Can't reach here";
++        //CHECK(false) << "Can't reach here";
+         return std::numeric_limits<uint32_t>::max();
+     }
+ 
+diff --git a/src/bvar/detail/sampler.h b/src/bvar/detail/sampler.h
+index 85ec237..015865f 100644
+--- a/src/bvar/detail/sampler.h
++++ b/src/bvar/detail/sampler.h
+@@ -23,7 +23,7 @@
+ #include <vector>
+ #include "butil/containers/linked_list.h"// LinkNode
+ #include "butil/scoped_lock.h"           // BAIDU_SCOPED_LOCK
+-#include "butil/logging.h"               // LOG()
++//#include "butil/logging.h"               // LOG()
+ #include "butil/containers/bounded_queue.h"// BoundedQueue
+ #include "butil/type_traits.h"           // is_same
+ #include "butil/time.h"                  // gettimeofday_us
+@@ -73,7 +73,7 @@ friend class SamplerCollector;
+ struct VoidOp {
+     template <typename T>
+     T operator()(const T&, const T&) const {
+-        CHECK(false) << "This function should never be called, abort";
++        //CHECK(false) << "This function should never be called, abort";
+         abort();
+     }
+ };
+@@ -142,7 +142,7 @@ public:
+ 
+     bool get_value(time_t window_size, Sample<T>* result) {
+         if (window_size <= 0) {
+-            LOG(FATAL) << "Invalid window_size=" << window_size;
++            //LOG(FATAL) << "Invalid window_size=" << window_size;
+             return false;
+         }
+         BAIDU_SCOPED_LOCK(_mutex);
+@@ -155,7 +155,7 @@ public:
+             oldest = _q.top();
+         }
+         Sample<T>* latest = _q.bottom();
+-        DCHECK(latest != oldest);
++        //DCHECK(latest != oldest);
+         if (butil::is_same<InvOp, VoidOp>::value) {
+             // No inverse op. Sum up all samples within the window.
+             result->data = latest->data;
+@@ -178,7 +178,7 @@ public:
+     // Change the time window which can only go larger.
+     int set_window_size(time_t window_size) {
+         if (window_size <= 0 || window_size > MAX_SECONDS_LIMIT) {
+-            LOG(ERROR) << "Invalid window_size=" << window_size;
++            //LOG(ERROR) << "Invalid window_size=" << window_size;
+             return -1;
+         }
+         BAIDU_SCOPED_LOCK(_mutex);
+@@ -190,7 +190,7 @@ public:
+ 
+     void get_samples(std::vector<T> *samples, time_t window_size) {
+         if (window_size <= 0) {
+-            LOG(FATAL) << "Invalid window_size=" << window_size;
++            //LOG(FATAL) << "Invalid window_size=" << window_size;
+             return;
+         }
+         BAIDU_SCOPED_LOCK(_mutex);
+diff --git a/src/bvar/detail/series.h b/src/bvar/detail/series.h
+index 3ceb913..b0a0c83 100644
+--- a/src/bvar/detail/series.h
++++ b/src/bvar/detail/series.h
+@@ -230,7 +230,7 @@ public:
+ template <typename T, typename Op>
+ void Series<T, Op>::describe(std::ostream& os,
+                              const std::string* vector_names) const {
+-    CHECK(vector_names == NULL);
++    //CHECK(vector_names == NULL);
+     pthread_mutex_lock(&this->_mutex);
+     const int second_begin = this->_nsecond;
+     const int minute_begin = this->_nminute;
+diff --git a/src/bvar/passive_status.h b/src/bvar/passive_status.h
+index eb4900d..8c6e361 100644
+--- a/src/bvar/passive_status.h
++++ b/src/bvar/passive_status.h
+@@ -162,7 +162,7 @@ public:
+     }
+ 
+     Tp reset() {
+-        CHECK(false) << "PassiveStatus::reset() should never be called, abort";
++        //CHECK(false) << "PassiveStatus::reset() should never be called, abort";
+         abort();
+     }
+ 
+diff --git a/src/bvar/recorder.h b/src/bvar/recorder.h
+index 33bb65d..98f2ac0 100644
+--- a/src/bvar/recorder.h
++++ b/src/bvar/recorder.h
+@@ -22,7 +22,7 @@
+ 
+ #include <stdint.h>                              // int64_t uint64_t
+ #include "butil/macros.h"                         // BAIDU_CASSERT
+-#include "butil/logging.h"                        // LOG
++//#include "butil/logging.h"                        // LOG
+ #include "bvar/detail/combiner.h"                // detail::AgentCombiner
+ #include "bvar/variable.h"
+ #include "bvar/window.h"
+@@ -248,19 +248,19 @@ inline IntRecorder& IntRecorder::operator<<(int64_t sample) {
+         // Truncate to be max or min of int. We're using 44 bits to store the
+         // sum thus following aggregations are not likely to be over/underflow.
+         if (!name().empty()) {
+-            LOG(WARNING) << "Input=" << sample << " to `" << name()
+-                       << "\' " << reason;
++            //LOG(WARNING) << "Input=" << sample << " to `" << name()
++            //           << "\' " << reason;
+         } else if (!_debug_name.empty()) {
+-            LOG(WARNING) << "Input=" << sample << " to `" << _debug_name
+-                       << "\' " << reason;
++            //LOG(WARNING) << "Input=" << sample << " to `" << _debug_name
++            //           << "\' " << reason;
+         } else {
+-            LOG(WARNING) << "Input=" << sample << " to IntRecorder("
+-                       << (void*)this << ") " << reason;
++            //LOG(WARNING) << "Input=" << sample << " to IntRecorder("
++            //           << (void*)this << ") " << reason;
+         }
+     }
+     agent_type* agent = _combiner.get_or_create_tls_agent();
+     if (BAIDU_UNLIKELY(!agent)) {
+-        LOG(FATAL) << "Fail to create agent";
++        //LOG(FATAL) << "Fail to create agent";
+         return *this;
+     }
+     uint64_t n;
+diff --git a/src/bvar/reducer.h b/src/bvar/reducer.h
+index fbd4fa7..f6eca68 100644
+--- a/src/bvar/reducer.h
++++ b/src/bvar/reducer.h
+@@ -21,7 +21,7 @@
+ #define  BVAR_REDUCER_H
+ 
+ #include <limits>                                 // std::numeric_limits
+-#include "butil/logging.h"                         // LOG()
++//#include "butil/logging.h"                         // LOG()
+ #include "butil/type_traits.h"                     // butil::add_cr_non_integral
+ #include "butil/class_name.h"                      // class_name_str
+ #include "bvar/variable.h"                        // Variable
+@@ -115,10 +115,10 @@ public:
+     // Notice that this function walks through threads that ever add values
+     // into this reducer. You should avoid calling it frequently.
+     T get_value() const {
+-        CHECK(!(butil::is_same<InvOp, detail::VoidOp>::value) || _sampler == NULL)
+-            << "You should not call Reducer<" << butil::class_name_str<T>()
+-            << ", " << butil::class_name_str<Op>() << ">::get_value() when a"
+-            << " Window<> is used because the operator does not have inverse.";
++        //CHECK(!(butil::is_same<InvOp, detail::VoidOp>::value) || _sampler == NULL)
++        //    << "You should not call Reducer<" << butil::class_name_str<T>()
++        //    << ", " << butil::class_name_str<Op>() << ">::get_value() when a"
++        //    << " Window<> is used because the operator does not have inverse.";
+         return _combiner.combine_agents();
+     }
+ 
+@@ -193,7 +193,7 @@ inline Reducer<T, Op, InvOp>& Reducer<T, Op, InvOp>::operator<<(
+     // It's wait-free for most time
+     agent_type* agent = _combiner.get_or_create_tls_agent();
+     if (__builtin_expect(!agent, 0)) {
+-        LOG(FATAL) << "Fail to create agent";
++        //LOG(FATAL) << "Fail to create agent";
+         return *this;
+     }
+     agent->element.modify(_combiner.op(), value);
+diff --git a/src/bvar/utils/lock_timer.h b/src/bvar/utils/lock_timer.h
+index f41024a..6a9b154 100644
+--- a/src/bvar/utils/lock_timer.h
++++ b/src/bvar/utils/lock_timer.h
+@@ -120,7 +120,7 @@ struct MutexConstructor<pthread_mutex_t> {
+     bool operator()(pthread_mutex_t* mutex) const { 
+ #ifndef NDEBUG
+         const int rc = pthread_mutex_init(mutex, NULL);
+-        CHECK_EQ(0, rc) << "Fail to init pthread_mutex, " << berror(rc);
++        //CHECK_EQ(0, rc) << "Fail to init pthread_mutex, " << berror(rc);
+         return rc == 0;
+ #else
+         return pthread_mutex_init(mutex, NULL) == 0;
+@@ -133,7 +133,7 @@ struct MutexDestructor<pthread_mutex_t> {
+     bool operator()(pthread_mutex_t* mutex) const { 
+ #ifndef NDEBUG
+         const int rc = pthread_mutex_destroy(mutex);
+-        CHECK_EQ(0, rc) << "Fail to destroy pthread_mutex, " << berror(rc);
++        //CHECK_EQ(0, rc) << "Fail to destroy pthread_mutex, " << berror(rc);
+         return rc == 0;
+ #else
+         return pthread_mutex_destroy(mutex) == 0;
+diff --git a/src/bvar/window.h b/src/bvar/window.h
+index a5780bf..2ebf306 100644
+--- a/src/bvar/window.h
++++ b/src/bvar/window.h
+@@ -23,7 +23,7 @@
+ #include <limits>                                 // std::numeric_limits
+ #include <math.h>                                 // round
+ #include <gflags/gflags_declare.h>
+-#include "butil/logging.h"                         // LOG
++//#include "butil/logging.h"                         // LOG
+ #include "bvar/detail/sampler.h"
+ #include "bvar/detail/series.h"
+ #include "bvar/variable.h"
+@@ -81,7 +81,7 @@ public:
+         , _window_size(window_size > 0 ? window_size : FLAGS_bvar_dump_interval)
+         , _sampler(var->get_sampler())
+         , _series_sampler(NULL) {
+-        CHECK_EQ(0, _sampler->set_window_size(_window_size));
++        //CHECK_EQ(0, _sampler->set_window_size(_window_size));
+     }
+     
+     ~WindowBase() {

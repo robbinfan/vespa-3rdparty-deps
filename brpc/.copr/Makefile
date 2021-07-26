@@ -4,7 +4,7 @@ TOP = $(realpath $(dir $(lastword $(MAKEFILE_LIST))))
 MAJOR=0
 MINOR=9
 PATCH=7
-RELEASE=2
+RELEASE=3
 
 RPMTOPDIR=$(TOP)/rpmbuild
 SOURCEDIR=$(RPMTOPDIR)/SOURCES
@@ -16,6 +16,7 @@ srpm:
 	mkdir -p $(SPECDIR) $(SOURCEDIR)
 	cat vespa-brpc.spec.tmpl | sed "s/_TMPL_VER_MAJOR/$(MAJOR)/" | sed "s/_TMPL_VER_MINOR/$(MINOR)/" | sed "s/_TMPL_VER_PATCH/$(PATCH)/" | sed "s/_TMPL_VER_RELEASE/$(RELEASE)/" > $(SPECFILE)
 	spectool -g -C $(SOURCEDIR) $(SPECFILE)
+	cp -a *.diff $(SOURCEDIR)
 	rpmbuild -bs --define "_topdir $(RPMTOPDIR)" $(SPECFILE)
 	cp -a $(RPMTOPDIR)/SRPMS/* $(outdir)
 clean:
