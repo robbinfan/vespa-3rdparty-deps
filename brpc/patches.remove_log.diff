@@ -20,28 +20,6 @@ index ed6ff24..132dd8f 100644
          abort();
      };
  
-diff --git a/src/brpc/controller.h b/src/brpc/controller.h
-index e4e3533..354347b 100755
---- a/src/brpc/controller.h
-+++ b/src/brpc/controller.h
-@@ -845,11 +845,11 @@ std::ostream& operator<<(std::ostream& os, const Controller::LogPrefixDummy& p);
- //     Set cntl->set_request_id(REQUEST_ID);
- //   Standalone http client:
- //     Set header 'X-REQUEST-ID'
--#define CLOGD(cntl) LOG(DEBUG) << (cntl)->LogPrefix()
--#define CLOGI(cntl) LOG(INFO) << (cntl)->LogPrefix()
--#define CLOGW(cntl) LOG(WARNING) << (cntl)->LogPrefix()
--#define CLOGE(cntl) LOG(ERROR) << (cntl)->LogPrefix()
--#define CLOGF(cntl) LOG(FATAL) << (cntl)->LogPrefix()
--#define CVLOG(v, cntl) VLOG(v) << (cntl)->LogPrefix()
-+//#define CLOGD(cntl) LOG(DEBUG) << (cntl)->LogPrefix()
-+//#define CLOGI(cntl) LOG(INFO) << (cntl)->LogPrefix()
-+//#define CLOGW(cntl) LOG(WARNING) << (cntl)->LogPrefix()
-+//#define CLOGE(cntl) LOG(ERROR) << (cntl)->LogPrefix()
-+//#define CLOGF(cntl) LOG(FATAL) << (cntl)->LogPrefix()
-+//#define CVLOG(v, cntl) VLOG(v) << (cntl)->LogPrefix()
- 
- #endif  // BRPC_CONTROLLER_H
 diff --git a/src/brpc/details/controller_private_accessor.h b/src/brpc/details/controller_private_accessor.h
 index 362c8f0..7319f19 100644
 --- a/src/brpc/details/controller_private_accessor.h
