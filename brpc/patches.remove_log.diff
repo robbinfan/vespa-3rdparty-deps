@@ -33,6 +33,19 @@ index 362c8f0..7319f19 100644
          _cntl->_current_call.sending_sock.reset(ptr.release());
      }
  
+diff --git a/src/brpc/details/hpack.cpp b/src/brpc/details/hpack.cpp
+index 43a2d9e..7878b50 100644
+--- a/src/brpc/details/hpack.cpp
++++ b/src/brpc/details/hpack.cpp
+@@ -24,7 +24,7 @@
+ #include "butil/containers/flat_map.h"                   // butil::FlatMap
+ #include "butil/containers/case_ignored_flat_map.h"      // butil::FlatMap
+ #include "brpc/details/hpack-static-table.h"       // s_static_headers
+-
++#include "butil/logging.h"
+ 
+ namespace brpc {
+ 
 diff --git a/src/brpc/details/server_private_accessor.h b/src/brpc/details/server_private_accessor.h
 index aacf283..c2d84dd 100644
 --- a/src/brpc/details/server_private_accessor.h
@@ -59,6 +72,18 @@ index 3834afa..fba627b 100644
      uint32_t new_cap = std::min(2 * (uint32_t)_q->capacity(), 60u);
      Q* new_q = CreateQueue(new_cap);
      for (size_t i = 0; i < _q->size(); ++i) {
+diff --git a/src/brpc/details/usercode_backup_pool.cpp b/src/brpc/details/usercode_backup_pool.cpp
+index 53a1541..d0131de 100644
+--- a/src/brpc/details/usercode_backup_pool.cpp
++++ b/src/brpc/details/usercode_backup_pool.cpp
+@@ -24,6 +24,7 @@
+ #include "butil/comlog_sink.h"
+ #endif
+ #include "brpc/details/usercode_backup_pool.h"
++#include "butil/logging.h"
+ 
+ namespace bthread {
+ // Defined in bthread/task_control.cpp
 diff --git a/src/brpc/extension_inl.h b/src/brpc/extension_inl.h
 index 8eede30..8b1a1c6 100644
 --- a/src/brpc/extension_inl.h
@@ -78,6 +103,18 @@ index 8eede30..8b1a1c6 100644
          return -1;
      }
      _instance_map[name] = instance;
+diff --git a/src/brpc/periodic_task.cpp b/src/brpc/periodic_task.cpp
+index 27ea3ec..23804e4 100644
+--- a/src/brpc/periodic_task.cpp
++++ b/src/brpc/periodic_task.cpp
+@@ -19,6 +19,7 @@
+ #include <bthread/bthread.h>
+ #include <bthread/unstable.h>
+ #include "brpc/periodic_task.h"
++#include "butil/logging.h"
+ 
+ namespace brpc {
+ 
 diff --git a/src/brpc/policy/http2_rpc_protocol.h b/src/brpc/policy/http2_rpc_protocol.h
 index 8574723..f185569 100644
 --- a/src/brpc/policy/http2_rpc_protocol.h
@@ -198,6 +235,44 @@ index d2515d8..a608bcc 100644
      return "";
  }
  
+diff --git a/src/brpc/rpc_dump.cpp b/src/brpc/rpc_dump.cpp
+index bf3d7fc..625ffe1 100644
+--- a/src/brpc/rpc_dump.cpp
++++ b/src/brpc/rpc_dump.cpp
+@@ -28,6 +28,7 @@
+ #include "brpc/reloadable_flags.h"
+ #include "brpc/rpc_dump.h"
+ #include "brpc/protocol.h"
++#include "butil/logging.h"
+ 
+ namespace bvar {
+ std::string read_command_name();
+diff --git a/src/brpc/server_id.cpp b/src/brpc/server_id.cpp
+index c3a595b..57314a0 100644
+--- a/src/brpc/server_id.cpp
++++ b/src/brpc/server_id.cpp
+@@ -17,7 +17,7 @@
+ 
+ 
+ #include "brpc/server_id.h"
+-
++#include "butil/logging.h"
+ 
+ namespace brpc {
+ 
+diff --git a/src/brpc/simple_data_pool.h b/src/brpc/simple_data_pool.h
+index 390f6e5..51b2434 100644
+--- a/src/brpc/simple_data_pool.h
++++ b/src/brpc/simple_data_pool.h
+@@ -21,7 +21,7 @@
+ 
+ #include "butil/scoped_lock.h"
+ #include "brpc/data_factory.h"
+-
++#include "butil/atomicops.h"
+ 
+ namespace brpc {
+ 
 diff --git a/src/brpc/socket_inl.h b/src/brpc/socket_inl.h
 index 31ce6a9..c16a6a0 100644
 --- a/src/brpc/socket_inl.h
@@ -266,8 +341,45 @@ index a152b16..c612c73 100644
          }
      }
      return raw_msg;
+diff --git a/src/brpc/uri.cpp b/src/brpc/uri.cpp
+index 15ca9e9..5035d75 100644
+--- a/src/brpc/uri.cpp
++++ b/src/brpc/uri.cpp
+@@ -19,7 +19,7 @@
+ #include "brpc/log.h"
+ #include "brpc/details/http_parser.h"      // http_parser_parse_url
+ #include "brpc/uri.h"                      // URI
+-
++#include "butil/logging.h"
+ 
+ namespace brpc {
+ 
+diff --git a/src/bthread/countdown_event.cpp b/src/bthread/countdown_event.cpp
+index 3d0d652..fb504cf 100644
+--- a/src/bthread/countdown_event.cpp
++++ b/src/bthread/countdown_event.cpp
+@@ -22,6 +22,7 @@
+ #include "butil/atomicops.h"     // butil::atomic<int>
+ #include "bthread/butex.h"
+ #include "bthread/countdown_event.h"
++#include "butil/logging.h"
+ 
+ namespace bthread {
+ 
+diff --git a/src/bthread/execution_queue.cpp b/src/bthread/execution_queue.cpp
+index 569698b..590e20f 100644
+--- a/src/bthread/execution_queue.cpp
++++ b/src/bthread/execution_queue.cpp
+@@ -24,6 +24,7 @@
+ #include "butil/memory/singleton_on_pthread_once.h"
+ #include "butil/object_pool.h"           // butil::get_object
+ #include "butil/resource_pool.h"         // butil::get_resource
++#include "butil/logging.h"
+ 
+ namespace bthread {
+ 
 diff --git a/src/bthread/execution_queue_inl.h b/src/bthread/execution_queue_inl.h
-index 7911db6..2253d45 100644
+index 7911db6..e5f643a 100644
 --- a/src/bthread/execution_queue_inl.h
 +++ b/src/bthread/execution_queue_inl.h
 @@ -25,7 +25,7 @@
@@ -279,6 +391,83 @@ index 7911db6..2253d45 100644
  #include "butil/time.h"                  // butil::cpuwide_time_ns
  #include "bvar/bvar.h"                  // bvar::Adder
  #include "bthread/butex.h"              // butex_construct
+@@ -99,18 +99,18 @@ struct BAIDU_CACHELINE_ALIGNMENT TaskNode {
+     void clear_before_return(clear_task_mem clear_func) {
+         if (!stop_task) {
+             clear_func(this);
+-            CHECK(iterated);
++            //CHECK(iterated);
+         }
+         q = NULL;
+         std::unique_lock<butil::Mutex> lck(mutex);
+         ++version;
+-        const int saved_status = status;
++        //const int saved_status = status;
+         status = UNEXECUTED;
+         lck.unlock();
+-        CHECK_NE(saved_status, UNEXECUTED);
+-        LOG_IF(WARNING, saved_status == EXECUTING) 
+-                << "Return a executing node, did you return before "
+-                   "iterator reached the end?";
++        //CHECK_NE(saved_status, UNEXECUTED);
++        //LOG_IF(WARNING, saved_status == EXECUTING) 
++        //        << "Return a executing node, did you return before "
++        //           "iterator reached the end?";
+     }
+ 
+     static TaskNode* const UNCONNECTED;
+@@ -433,7 +433,7 @@ inline bool ExecutionQueueBase::_more_tasks(
+         TaskNode* old_head, TaskNode** new_tail, 
+         bool has_uniterated) {
+ 
+-    CHECK(old_head->next == NULL);
++    //CHECK(old_head->next == NULL);
+     // Try to set _head to NULL to mark that the execute is done.
+     TaskNode* new_head = old_head;
+     TaskNode* desired = NULL;
+@@ -447,7 +447,7 @@ inline bool ExecutionQueueBase::_more_tasks(
+         // No one added new tasks.
+         return return_when_no_more;
+     }
+-    CHECK_NE(new_head, old_head);
++    //CHECK_NE(new_head, old_head);
+     // Above acquire fence pairs release fence of exchange in Write() to make
+     // sure that we see all fields of requests set.
+ 
+@@ -467,7 +467,7 @@ inline bool ExecutionQueueBase::_more_tasks(
+         p->next = tail;
+         tail = p;
+         p = saved_next;
+-        CHECK(p != NULL);
++        //CHECK(p != NULL);
+     } while (p != old_head);
+ 
+     // Link old list with new list.
+@@ -526,10 +526,10 @@ inline int ExecutionQueueBase::dereference() {
+             }
+             return 0;
+         }
+-        LOG(FATAL) << "Invalid id=" << id;
++        //LOG(FATAL) << "Invalid id=" << id;
+         return -1;
+     }
+-    LOG(FATAL) << "Over dereferenced id=" << id;
++    //LOG(FATAL) << "Over dereferenced id=" << id;
+     return -1;
+ }
+ 
+diff --git a/src/bthread/key.cpp b/src/bthread/key.cpp
+index 53f7594..3a0e79f 100644
+--- a/src/bthread/key.cpp
++++ b/src/bthread/key.cpp
+@@ -25,6 +25,7 @@
+ #include "bvar/passive_status.h"
+ #include "bthread/errno.h"                       // EAGAIN
+ #include "bthread/task_group.h"                  // TaskGroup
++#include "butil/logging.h"
+ 
+ // Implement bthread_key_t related functions
+ 
 diff --git a/src/bthread/mutex.h b/src/bthread/mutex.h
 index 257f179..cdcd91e 100644
 --- a/src/bthread/mutex.h
@@ -338,6 +527,30 @@ index 257f179..cdcd91e 100644
              return;
          }
          if (_mutex) {
+diff --git a/src/bthread/stack.cpp b/src/bthread/stack.cpp
+index 43e57ef..2154fc0 100644
+--- a/src/bthread/stack.cpp
++++ b/src/bthread/stack.cpp
+@@ -30,6 +30,7 @@
+ #include "bvar/passive_status.h"
+ #include "bthread/types.h"                        // BTHREAD_STACKTYPE_*
+ #include "bthread/stack.h"
++#include "butil/logging.h"
+ 
+ DEFINE_int32(stack_size_small, 32768, "size of small stacks");
+ DEFINE_int32(stack_size_normal, 1048576, "size of normal stacks");
+diff --git a/src/bthread/task_group.cpp b/src/bthread/task_group.cpp
+index 7c41653..b391f9a 100644
+--- a/src/bthread/task_group.cpp
++++ b/src/bthread/task_group.cpp
+@@ -36,6 +36,7 @@
+ #include "bthread/task_group.h"
+ #include "bthread/timer_thread.h"
+ #include "bthread/errno.h"
++#include "butil/logging.h"
+ 
+ namespace bthread {
+ 
 diff --git a/src/bthread/task_group_inl.h b/src/bthread/task_group_inl.h
 index d48ceaa..b329554 100644
 --- a/src/bthread/task_group_inl.h
@@ -409,6 +622,1028 @@ index 3750ac5..79932f6 100644
              return -1;
          }
          _buffer = new(std::nothrow) T[capacity];
+diff --git a/src/butil/bits.h b/src/butil/bits.h
+index 530e479..b9a6f44 100644
+--- a/src/butil/bits.h
++++ b/src/butil/bits.h
+@@ -8,7 +8,7 @@
+ #define BUTIL_BITS_H_
+ 
+ #include "butil/basictypes.h"
+-#include "butil/logging.h"
++//#include "butil/logging.h"
+ 
+ namespace butil {
+ namespace bits {
+@@ -27,7 +27,7 @@ inline int Log2Floor(uint32_t n) {
+       log += shift;
+     }
+   }
+-  DCHECK_EQ(value, 1u);
++  //DCHECK_EQ(value, 1u);
+   return log;
+ }
+ 
+diff --git a/src/butil/cancelable_callback.h b/src/butil/cancelable_callback.h
+index f2d0465..b4e1f76 100644
+--- a/src/butil/cancelable_callback.h
++++ b/src/butil/cancelable_callback.h
+@@ -47,7 +47,7 @@
+ #include "butil/callback.h"
+ #include "butil/callback_internal.h"
+ #include "butil/compiler_specific.h"
+-#include "butil/logging.h"
++//#include "butil/logging.h"
+ #include "butil/memory/weak_ptr.h"
+ 
+ namespace butil {
+@@ -64,7 +64,7 @@ class CancelableCallback<void(void)> {
+   explicit CancelableCallback(const butil::Callback<void(void)>& callback)
+       : weak_factory_(this),
+         callback_(callback) {
+-    DCHECK(!callback.is_null());
++    //DCHECK(!callback.is_null());
+     InitializeForwarder();
+   }
+ 
+@@ -85,7 +85,7 @@ class CancelableCallback<void(void)> {
+   // Sets |callback| as the closure that may be cancelled. |callback| may not
+   // be null. Outstanding and any previously wrapped callbacks are cancelled.
+   void Reset(const butil::Callback<void(void)>& callback) {
+-    DCHECK(!callback.is_null());
++    //DCHECK(!callback.is_null());
+ 
+     // Outstanding tasks (e.g., posted to a message loop) must not be called.
+     Cancel();
+@@ -134,7 +134,7 @@ class CancelableCallback<void(A1)> {
+   explicit CancelableCallback(const butil::Callback<void(A1)>& callback)
+       : weak_factory_(this),
+         callback_(callback) {
+-    DCHECK(!callback.is_null());
++    //DCHECK(!callback.is_null());
+     InitializeForwarder();
+   }
+ 
+@@ -155,7 +155,7 @@ class CancelableCallback<void(A1)> {
+   // Sets |callback| as the closure that may be cancelled. |callback| may not
+   // be null. Outstanding and any previously wrapped callbacks are cancelled.
+   void Reset(const butil::Callback<void(A1)>& callback) {
+-    DCHECK(!callback.is_null());
++    //DCHECK(!callback.is_null());
+ 
+     // Outstanding tasks (e.g., posted to a message loop) must not be called.
+     Cancel();
+@@ -204,7 +204,7 @@ class CancelableCallback<void(A1, A2)> {
+   explicit CancelableCallback(const butil::Callback<void(A1, A2)>& callback)
+       : weak_factory_(this),
+         callback_(callback) {
+-    DCHECK(!callback.is_null());
++    //DCHECK(!callback.is_null());
+     InitializeForwarder();
+   }
+ 
+@@ -225,7 +225,7 @@ class CancelableCallback<void(A1, A2)> {
+   // Sets |callback| as the closure that may be cancelled. |callback| may not
+   // be null. Outstanding and any previously wrapped callbacks are cancelled.
+   void Reset(const butil::Callback<void(A1, A2)>& callback) {
+-    DCHECK(!callback.is_null());
++    //DCHECK(!callback.is_null());
+ 
+     // Outstanding tasks (e.g., posted to a message loop) must not be called.
+     Cancel();
+diff --git a/src/butil/containers/bounded_queue.h b/src/butil/containers/bounded_queue.h
+index 55f06e1..842c04b 100644
+--- a/src/butil/containers/bounded_queue.h
++++ b/src/butil/containers/bounded_queue.h
+@@ -26,7 +26,7 @@
+ #define BUTIL_BOUNDED_QUEUE_H
+ 
+ #include "butil/macros.h"
+-#include "butil/logging.h"
++//#include "butil/logging.h"
+ 
+ namespace butil {
+ 
+@@ -64,7 +64,7 @@ public:
+         , _start(0)
+         , _ownership(ownership)
+         , _items(mem) {
+-        DCHECK(_items);
++        //DCHECK(_items);
+     };
+     
+     // Construct a queue with the given capacity.
+@@ -76,7 +76,7 @@ public:
+         , _start(0)
+         , _ownership(OWNS_STORAGE)
+         , _items(malloc(capacity * sizeof(T))) {
+-        DCHECK(_items);
++        //DCHECK(_items);
+     };
+     
+     BoundedQueue()
+diff --git a/src/butil/containers/doubly_buffered_data.h b/src/butil/containers/doubly_buffered_data.h
+index 93ba342..9822dbb 100644
+--- a/src/butil/containers/doubly_buffered_data.h
++++ b/src/butil/containers/doubly_buffered_data.h
+@@ -24,7 +24,7 @@
+ #include <pthread.h>
+ #include "butil/scoped_lock.h"
+ #include "butil/thread_local.h"
+-#include "butil/logging.h"
++//#include "butil/logging.h"
+ #include "butil/macros.h"
+ #include "butil/type_traits.h"
+ #include "butil/errno.h"
+@@ -282,7 +282,7 @@ DoublyBufferedData<T, TLS>::DoublyBufferedData()
+     const int rc = pthread_key_create(&_wrapper_key,
+                                       butil::delete_object<Wrapper>);
+     if (rc != 0) {
+-        LOG(FATAL) << "Fail to pthread_key_create: " << berror(rc);
++        //LOG(FATAL) << "Fail to pthread_key_create: " << berror(rc);
+     } else {
+         _created_key = true;
+     }
+@@ -374,7 +374,7 @@ size_t DoublyBufferedData<T, TLS>::Modify(Fn& fn) {
+     }
+ 
+     const size_t ret2 = fn(_data[bg_index]);
+-    CHECK_EQ(ret2, ret) << "index=" << _index.load(butil::memory_order_relaxed);
++    //CHECK_EQ(ret2, ret) << "index=" << _index.load(butil::memory_order_relaxed);
+     return ret2;
+ }
+ 
+diff --git a/src/butil/containers/flat_map.h b/src/butil/containers/flat_map.h
+index 27777e4..4556bf4 100644
+--- a/src/butil/containers/flat_map.h
++++ b/src/butil/containers/flat_map.h
+@@ -97,7 +97,7 @@
+ #include <functional>
+ #include <iostream>                               // std::ostream
+ #include "butil/type_traits.h"
+-#include "butil/logging.h"
++//#include "butil/logging.h"
+ #include "butil/find_cstr.h"
+ #include "butil/single_threaded_pool.h"            // SingleThreadedPool
+ #include "butil/containers/hash_tables.h"          // hash<>
+diff --git a/src/butil/containers/flat_map_inl.h b/src/butil/containers/flat_map_inl.h
+index ef08d7b..573087f 100644
+--- a/src/butil/containers/flat_map_inl.h
++++ b/src/butil/containers/flat_map_inl.h
+@@ -277,14 +277,14 @@ FlatMap<_K, _T, _H, _E, _S>::operator=(const FlatMap<_K, _T, _H, _E, _S>& rhs) {
+         // note: need an extra bucket to let iterator know where buckets end
+         _buckets = (Bucket*)malloc(sizeof(Bucket) * (_nbucket + 1/*note*/));
+         if (NULL == _buckets) {
+-            LOG(ERROR) << "Fail to new _buckets";
++            //LOG(ERROR) << "Fail to new _buckets";
+             return;
+         }
+         if (_S) {
+             free(_thumbnail);
+             _thumbnail = bit_array_malloc(_nbucket);
+             if (NULL == _thumbnail) {
+-                LOG(ERROR) << "Fail to new _thumbnail";
++                //LOG(ERROR) << "Fail to new _thumbnail";
+                 return;
+             }
+             bit_array_clear(_thumbnail, _nbucket);
+@@ -323,11 +323,11 @@ FlatMap<_K, _T, _H, _E, _S>::operator=(const FlatMap<_K, _T, _H, _E, _S>& rhs) {
+ template <typename _K, typename _T, typename _H, typename _E, bool _S>
+ int FlatMap<_K, _T, _H, _E, _S>::init(size_t nbucket, u_int load_factor) {
+     if (initialized()) {
+-        LOG(ERROR) << "Already initialized";
++        //LOG(ERROR) << "Already initialized";
+         return -1;
+     }
+     if (load_factor < 10 || load_factor > 100) {
+-        LOG(ERROR) << "Invalid load_factor=" << load_factor;
++        //LOG(ERROR) << "Invalid load_factor=" << load_factor;
+         return -1;
+     }
+     _size = 0;
+@@ -336,7 +336,7 @@ int FlatMap<_K, _T, _H, _E, _S>::init(size_t nbucket, u_int load_factor) {
+                                 
+     _buckets = (Bucket*)malloc(sizeof(Bucket) * (_nbucket + 1));
+     if (NULL == _buckets) {
+-        LOG(ERROR) << "Fail to new _buckets";
++        //LOG(ERROR) << "Fail to new _buckets";
+         return -1;
+     }
+     for (size_t i = 0; i < _nbucket; ++i) {
+@@ -347,7 +347,7 @@ int FlatMap<_K, _T, _H, _E, _S>::init(size_t nbucket, u_int load_factor) {
+     if (_S) {
+         _thumbnail = bit_array_malloc(_nbucket);
+         if (NULL == _thumbnail) {
+-            LOG(ERROR) << "Fail to new _thumbnail";
++            //LOG(ERROR) << "Fail to new _thumbnail";
+             return -1;
+         }
+         bit_array_clear(_thumbnail, _nbucket);
+@@ -600,7 +600,7 @@ bool FlatMap<_K, _T, _H, _E, _S>::resize(size_t nbucket2) {
+ 
+     FlatMap new_map;
+     if (new_map.init(nbucket2, _load_factor) != 0) {
+-        LOG(ERROR) << "Fail to init new_map, nbucket=" << nbucket2;
++        //LOG(ERROR) << "Fail to init new_map, nbucket=" << nbucket2;
+         return false;
+     }
+     for (iterator it = begin(); it != end(); ++it) {
+diff --git a/src/butil/containers/mru_cache.h b/src/butil/containers/mru_cache.h
+index e2bbef7..3102a56 100644
+--- a/src/butil/containers/mru_cache.h
++++ b/src/butil/containers/mru_cache.h
+@@ -22,7 +22,7 @@
+ 
+ #include "butil/basictypes.h"
+ #include "butil/containers/hash_tables.h"
+-#include "butil/logging.h"
++//#include "butil/logging.h"
+ 
+ namespace butil {
+ 
+@@ -174,7 +174,7 @@ class MRUCacheBase {
+   size_type size() const {
+     // We don't use ordering_.size() for the return value because
+     // (as a linked list) it can be O(n).
+-    DCHECK(index_.size() == ordering_.size());
++    //DCHECK(index_.size() == ordering_.size());
+     return index_.size();
+   }
+ 
+diff --git a/src/butil/containers/scoped_ptr_hash_map.h b/src/butil/containers/scoped_ptr_hash_map.h
+index a24e872..bcada67 100644
+--- a/src/butil/containers/scoped_ptr_hash_map.h
++++ b/src/butil/containers/scoped_ptr_hash_map.h
+@@ -10,7 +10,7 @@
+ 
+ #include "butil/basictypes.h"
+ #include "butil/containers/hash_tables.h"
+-#include "butil/logging.h"
++//#include "butil/logging.h"
+ #include "butil/memory/scoped_ptr.h"
+ #include "butil/stl_util.h"
+ 
+@@ -73,7 +73,7 @@ class ScopedPtrHashMap {
+   }
+ 
+   scoped_ptr<Value> take(iterator it) {
+-    DCHECK(it != data_.end());
++    //DCHECK(it != data_.end());
+     if (it == data_.end())
+       return scoped_ptr<Value>();
+ 
+@@ -91,7 +91,7 @@ class ScopedPtrHashMap {
+   }
+ 
+   scoped_ptr<Value> take_and_erase(iterator it) {
+-    DCHECK(it != data_.end());
++    //DCHECK(it != data_.end());
+     if (it == data_.end())
+       return scoped_ptr<Value>();
+ 
+diff --git a/src/butil/containers/small_map.h b/src/butil/containers/small_map.h
+index 4b619a1..2d13982 100644
+--- a/src/butil/containers/small_map.h
++++ b/src/butil/containers/small_map.h
+@@ -11,7 +11,7 @@
+ 
+ #include "butil/basictypes.h"
+ #include "butil/containers/hash_tables.h"
+-#include "butil/logging.h"
++//#include "butil/logging.h"
+ #include "butil/memory/manual_constructor.h"
+ 
+ namespace butil {
+@@ -558,11 +558,11 @@ class SmallMap {
+   }
+ 
+   inline NormalMap* map() {
+-    CHECK(UsingFullMap());
++    //CHECK(UsingFullMap());
+     return map_.get();
+   }
+   inline const NormalMap* map() const {
+-    CHECK(UsingFullMap());
++    //CHECK(UsingFullMap());
+     return map_.get();
+   }
+ 
+diff --git a/src/butil/debug/leak_tracker.h b/src/butil/debug/leak_tracker.h
+index 5f584d3..f0a4d6f 100644
+--- a/src/butil/debug/leak_tracker.h
++++ b/src/butil/debug/leak_tracker.h
+@@ -15,7 +15,7 @@
+ #ifdef ENABLE_LEAK_TRACKER
+ #include "butil/containers/linked_list.h"
+ #include "butil/debug/stack_trace.h"
+-#include "butil/logging.h"
++//#include "butil/logging.h"
+ #endif  // ENABLE_LEAK_TRACKER
+ 
+ // LeakTracker is a helper to verify that all instances of a class
+@@ -93,13 +93,13 @@ class LeakTracker : public LinkNode<LeakTracker<T> > {
+         stacktraces[count] = allocation_stack;
+ 
+       ++count;
+-      std::ostringstream err;
+-      err << "Leaked " << node << " which was allocated by:";
+-      allocation_stack.OutputToStream(&err);
+-      LOG(ERROR) << err.str();
++      //std::ostringstream err;
++      //err << "Leaked " << node << " which was allocated by:";
++      //allocation_stack.OutputToStream(&err);
++      //LOG(ERROR) << err.str();
+     }
+ 
+-    CHECK_EQ(0u, count);
++    //CHECK_EQ(0u, count);
+ 
+     // Hack to keep |stacktraces| and |count| alive (so compiler
+     // doesn't optimize it out, and it will appear in mini-dumps).
+diff --git a/src/butil/debug/proc_maps_linux.cc b/src/butil/debug/proc_maps_linux.cc
+index 4d4888c..7ae694d 100644
+--- a/src/butil/debug/proc_maps_linux.cc
++++ b/src/butil/debug/proc_maps_linux.cc
+@@ -13,6 +13,7 @@
+ #include "butil/file_util.h"
+ #include "butil/files/scoped_file.h"
+ #include "butil/strings/string_split.h"
++#include "butil/logging.h"
+ 
+ #if defined(OS_ANDROID) && !defined(__LP64__)
+ // In 32-bit mode, Bionic's inttypes.h defines PRI/SCNxPTR as an
+diff --git a/src/butil/file_util.h b/src/butil/file_util.h
+index 4eb164b..765f78a 100644
+--- a/src/butil/file_util.h
++++ b/src/butil/file_util.h
+@@ -32,7 +32,7 @@
+ 
+ #if defined(OS_POSIX)
+ #include "butil/file_descriptor_posix.h"
+-#include "butil/logging.h"
++//#include "butil/logging.h"
+ #include "butil/posix/eintr_wrapper.h"
+ #endif
+ 
+diff --git a/src/butil/files/dir_reader_linux.h b/src/butil/files/dir_reader_linux.h
+index c701546..6e497b4 100644
+--- a/src/butil/files/dir_reader_linux.h
++++ b/src/butil/files/dir_reader_linux.h
+@@ -11,7 +11,7 @@
+ #include <sys/syscall.h>
+ #include <unistd.h>
+ 
+-#include "butil/logging.h"
++//#include "butil/logging.h"
+ #include "butil/posix/eintr_wrapper.h"
+ 
+ // See the comments in dir_reader_posix.h about this.
+@@ -37,8 +37,8 @@ class DirReaderLinux {
+ 
+   ~DirReaderLinux() {
+     if (fd_ >= 0) {
+-      if (IGNORE_EINTR(close(fd_)))
+-        RAW_LOG(ERROR, "Failed to close directory handle");
++      //if (IGNORE_EINTR(close(fd_)))
++      //  RAW_LOG(ERROR, "Failed to close directory handle");
+     }
+   }
+ 
+@@ -60,7 +60,7 @@ class DirReaderLinux {
+     if (r == 0)
+       return false;
+     if (r == -1) {
+-      DPLOG(FATAL) << "getdents64 returned an error: " << errno;
++      //DPLOG(FATAL) << "getdents64 returned an error: " << errno;
+       return false;
+     }
+     size_ = r;
+diff --git a/src/butil/files/dir_reader_unix.h b/src/butil/files/dir_reader_unix.h
+index 7e3c1e9..b2aff8e 100644
+--- a/src/butil/files/dir_reader_unix.h
++++ b/src/butil/files/dir_reader_unix.h
+@@ -26,7 +26,7 @@
+ #include <unistd.h>
+ #include <dirent.h>
+ 
+-#include "butil/logging.h"
++//#include "butil/logging.h"
+ #include "butil/posix/eintr_wrapper.h"
+ 
+ // See the comments in dir_reader_posix.h about this.
+@@ -43,8 +43,8 @@ class DirReaderUnix {
+ 
+   ~DirReaderUnix() {
+     if (fd_ >= 0) {
+-      if (IGNORE_EINTR(close(fd_)))
+-        RAW_LOG(ERROR, "Failed to close directory handle");
++      //if (IGNORE_EINTR(close(fd_)))
++      //  RAW_LOG(ERROR, "Failed to close directory handle");
+     }
+     if(NULL != dir_){
+         closedir(dir_);
+diff --git a/src/butil/files/file.cc b/src/butil/files/file.cc
+index b3ce118..9134347 100644
+--- a/src/butil/files/file.cc
++++ b/src/butil/files/file.cc
+@@ -37,7 +37,7 @@ File::File(PlatformFile platform_file)
+       created_(false),
+       async_(false) {
+ #if defined(OS_POSIX)
+-  DCHECK_GE(platform_file, -1);
++  //DCHECK_GE(platform_file, -1);
+ #endif
+ }
+ 
+@@ -120,7 +120,7 @@ std::string File::ErrorToString(Error error) {
+       break;
+   }
+ 
+-  NOTREACHED();
++  //NOTREACHED();
+   return "";
+ }
+ 
+diff --git a/src/butil/files/scoped_file.h b/src/butil/files/scoped_file.h
+index 4d4d6ea..4063655 100644
+--- a/src/butil/files/scoped_file.h
++++ b/src/butil/files/scoped_file.h
+@@ -8,7 +8,7 @@
+ #include <stdio.h>
+ 
+ #include "butil/base_export.h"
+-#include "butil/logging.h"
++//#include "butil/logging.h"
+ #include "butil/memory/scoped_ptr.h"
+ #include "butil/scoped_generic.h"
+ #include "butil/build_config.h"
+diff --git a/src/butil/hash.h b/src/butil/hash.h
+index 69468a9..b838ad7 100644
+--- a/src/butil/hash.h
++++ b/src/butil/hash.h
+@@ -10,7 +10,7 @@
+ 
+ #include "butil/base_export.h"
+ #include "butil/basictypes.h"
+-#include "butil/logging.h"
++//#include "butil/logging.h"
+ 
+ namespace butil {
+ 
+@@ -21,7 +21,7 @@ BUTIL_EXPORT uint32_t SuperFastHash(const char* data, int len);
+ // WARNING: This hash function should not be used for any cryptographic purpose.
+ inline uint32_t Hash(const char* data, size_t length) {
+   if (length > static_cast<size_t>(std::numeric_limits<int>::max())) {
+-    NOTREACHED();
++    //NOTREACHED();
+     return 0;
+   }
+   return SuperFastHash(data, static_cast<int>(length));
+diff --git a/src/butil/lazy_instance.h b/src/butil/lazy_instance.h
+index 38b48a8..954c7af 100644
+--- a/src/butil/lazy_instance.h
++++ b/src/butil/lazy_instance.h
+@@ -41,7 +41,7 @@
+ #include "butil/base_export.h"
+ #include "butil/basictypes.h"
+ #include "butil/debug/leak_annotations.h"
+-#include "butil/logging.h"
++//#include "butil/logging.h"
+ #include "butil/memory/aligned_memory.h"
+ #include "butil/third_party/dynamic_annotations/dynamic_annotations.h"
+ #include "butil/threading/thread_restrictions.h"
+@@ -62,10 +62,10 @@ struct DefaultLazyInstanceTraits {
+ #endif
+ 
+   static Type* New(void* instance) {
+-    DCHECK_EQ(reinterpret_cast<uintptr_t>(instance) & (ALIGNOF(Type) - 1), 0u)
+-        << ": Bad boy, the buffer passed to placement new is not aligned!\n"
+-        "This may break some stuff like SSE-based optimizations assuming the "
+-        "<Type> objects are word aligned.";
++    // DCHECK_EQ(reinterpret_cast<uintptr_t>(instance) & (ALIGNOF(Type) - 1), 0u)
++    //    << ": Bad boy, the buffer passed to placement new is not aligned!\n"
++    //    "This may break some stuff like SSE-based optimizations assuming the "
++    //    "<Type> objects are word aligned.";
+     // Use placement new to initialize our instance in our preallocated space.
+     // The parenthesis is very important here to force POD type initialization.
+     return new (instance) Type();
+diff --git a/src/butil/memory/linked_ptr.h b/src/butil/memory/linked_ptr.h
+index 5773b17..b8a7764 100644
+--- a/src/butil/memory/linked_ptr.h
++++ b/src/butil/memory/linked_ptr.h
+@@ -37,7 +37,7 @@
+ #ifndef BUTIL_MEMORY_LINKED_PTR_H_
+ #define BUTIL_MEMORY_LINKED_PTR_H_
+ 
+-#include "butil/logging.h"  // for CHECK macros
++//#include "butil/logging.h"  // for CHECK macros
+ 
+ // This is used internally by all instances of linked_ptr<>.  It needs to be
+ // a non-template class because different types of linked_ptr<> can refer to
+@@ -87,7 +87,7 @@ class linked_ptr {
+   template <typename U> linked_ptr(linked_ptr<U> const& ptr) { copy(&ptr); }
+ 
+   linked_ptr(linked_ptr const& ptr) {
+-    DCHECK_NE(&ptr, this);
++    //DCHECK_NE(&ptr, this);
+     copy(&ptr);
+   }
+ 
+@@ -118,7 +118,7 @@ class linked_ptr {
+   // Sole ownership by this linked_ptr object is required.
+   T* release() {
+     bool last = link_.depart();
+-    CHECK(last);
++    //CHECK(last);
+     T* v = value_;
+     value_ = NULL;
+     return v;
+diff --git a/src/butil/memory/ref_counted.h b/src/butil/memory/ref_counted.h
+index 82704d8..12aa98a 100644
+--- a/src/butil/memory/ref_counted.h
++++ b/src/butil/memory/ref_counted.h
+@@ -11,7 +11,7 @@
+ #include "butil/base_export.h"
+ #include "butil/compiler_specific.h"
+ #ifndef NDEBUG
+-#include "butil/logging.h"
++//#include "butil/logging.h"
+ #endif
+ #include "butil/threading/thread_collision_warner.h"
+ 
+@@ -32,7 +32,7 @@ class BUTIL_EXPORT RefCountedBase {
+ 
+   ~RefCountedBase() {
+   #ifndef NDEBUG
+-    DCHECK(in_dtor_) << "RefCounted object deleted without calling Release()";
++    //DCHECK(in_dtor_) << "RefCounted object deleted without calling Release()";
+   #endif
+   }
+ 
+@@ -43,7 +43,7 @@ class BUTIL_EXPORT RefCountedBase {
+     // without release it.
+     // DFAKE_SCOPED_LOCK_THREAD_LOCKED(add_release_);
+   #ifndef NDEBUG
+-    DCHECK(!in_dtor_);
++    //DCHECK(!in_dtor_);
+   #endif
+     ++ref_count_;
+   }
+@@ -55,7 +55,7 @@ class BUTIL_EXPORT RefCountedBase {
+     // without release it.
+     // DFAKE_SCOPED_LOCK_THREAD_LOCKED(add_release_);
+   #ifndef NDEBUG
+-    DCHECK(!in_dtor_);
++    //DCHECK(!in_dtor_);
+   #endif
+     if (--ref_count_ == 0) {
+   #ifndef NDEBUG
+diff --git a/src/butil/memory/scoped_vector.h b/src/butil/memory/scoped_vector.h
+index a2aeba7..34dc23c 100644
+--- a/src/butil/memory/scoped_vector.h
++++ b/src/butil/memory/scoped_vector.h
+@@ -8,7 +8,7 @@
+ #include <vector>
+ 
+ #include "butil/basictypes.h"
+-#include "butil/logging.h"
++//#include "butil/logging.h"
+ #include "butil/move.h"
+ #include "butil/stl_util.h"
+ 
+@@ -71,7 +71,7 @@ class ScopedVector {
+   void push_back(T* elem) { v_.push_back(elem); }
+ 
+   void pop_back() {
+-    DCHECK(!empty());
++    //DCHECK(!empty());
+     delete v_.back();
+     v_.pop_back();
+   }
+diff --git a/src/butil/memory/weak_ptr.h b/src/butil/memory/weak_ptr.h
+index fd65bc9..c5b2057 100644
+--- a/src/butil/memory/weak_ptr.h
++++ b/src/butil/memory/weak_ptr.h
+@@ -65,7 +65,7 @@
+ 
+ #include "butil/basictypes.h"
+ #include "butil/base_export.h"
+-#include "butil/logging.h"
++//#include "butil/logging.h"
+ #include "butil/memory/ref_counted.h"
+ #include "butil/type_traits.h"
+ 
+@@ -201,11 +201,11 @@ class WeakPtr : public internal::WeakPtrBase {
+   T* get() const { return ref_.is_valid() ? ptr_ : NULL; }
+ 
+   T& operator*() const {
+-    DCHECK(get() != NULL);
++    //DCHECK(get() != NULL);
+     return *get();
+   }
+   T* operator->() const {
+-    DCHECK(get() != NULL);
++    //DCHECK(get() != NULL);
+     return get();
+   }
+ 
+@@ -264,19 +264,19 @@ class WeakPtrFactory {
+   }
+ 
+   WeakPtr<T> GetWeakPtr() {
+-    DCHECK(ptr_);
++    //DCHECK(ptr_);
+     return WeakPtr<T>(weak_reference_owner_.GetRef(), ptr_);
+   }
+ 
+   // Call this method to invalidate all existing weak pointers.
+   void InvalidateWeakPtrs() {
+-    DCHECK(ptr_);
++    //DCHECK(ptr_);
+     weak_reference_owner_.Invalidate();
+   }
+ 
+   // Call this method to determine if any weak pointers exist.
+   bool HasWeakPtrs() const {
+-    DCHECK(ptr_);
++    //DCHECK(ptr_);
+     return weak_reference_owner_.HasRefs();
+   }
+ 
+diff --git a/src/butil/numerics/safe_conversions.h b/src/butil/numerics/safe_conversions.h
+index 677aa4a..48344d6 100644
+--- a/src/butil/numerics/safe_conversions.h
++++ b/src/butil/numerics/safe_conversions.h
+@@ -7,7 +7,7 @@
+ 
+ #include <limits>
+ 
+-#include "butil/logging.h"
++//#include "butil/logging.h"
+ #include "butil/numerics/safe_conversions_impl.h"
+ 
+ namespace butil {
+@@ -25,7 +25,7 @@ inline bool IsValueInRangeForNumericType(Src value) {
+ // overflow or underflow. NaN source will always trigger a CHECK.
+ template <typename Dst, typename Src>
+ inline Dst checked_cast(Src value) {
+-  CHECK(IsValueInRangeForNumericType<Dst>(value));
++  //CHECK(IsValueInRangeForNumericType<Dst>(value));
+   return static_cast<Dst>(value);
+ }
+ 
+@@ -50,7 +50,7 @@ inline Dst saturated_cast(Src value) {
+ 
+     // Should fail only on attempting to assign NaN to a saturated integer.
+     case internal::RANGE_INVALID:
+-      CHECK(false);
++      //CHECK(false);
+       return std::numeric_limits<Dst>::max();
+   }
+ 
+diff --git a/src/butil/observer_list.h b/src/butil/observer_list.h
+index 8f0dd3b..b649efb 100644
+--- a/src/butil/observer_list.h
++++ b/src/butil/observer_list.h
+@@ -10,7 +10,7 @@
+ #include <vector>
+ 
+ #include "butil/basictypes.h"
+-#include "butil/logging.h"
++//#include "butil/logging.h"
+ #include "butil/memory/weak_ptr.h"
+ 
+ ///////////////////////////////////////////////////////////////////////////////
+@@ -194,7 +194,7 @@ class ObserverList : public ObserverListBase<ObserverType> {
+     // When check_empty is true, assert that the list is empty on destruction.
+     if (check_empty) {
+       ObserverListBase<ObserverType>::Compact();
+-      DCHECK_EQ(ObserverListBase<ObserverType>::size(), 0U);
++      //DCHECK_EQ(ObserverListBase<ObserverType>::size(), 0U);
+     }
+   }
+ 
+diff --git a/src/butil/scoped_lock.h b/src/butil/scoped_lock.h
+index 45f5230..f6cfa44 100644
+--- a/src/butil/scoped_lock.h
++++ b/src/butil/scoped_lock.h
+@@ -26,7 +26,7 @@
+ 
+ #include "butil/synchronization/lock.h"
+ #include "butil/macros.h"
+-#include "butil/logging.h"
++//#include "butil/logging.h"
+ #include "butil/errno.h"
+ 
+ #if !defined(BUTIL_CXX11_ENABLED)
+@@ -100,7 +100,7 @@ public:
+ 
+     void lock() {
+         if (_owns_lock) {
+-            CHECK(false) << "Detected deadlock issue";     
++            //CHECK(false) << "Detected deadlock issue";     
+             return;
+         }
+         _owns_lock = true;
+@@ -109,7 +109,7 @@ public:
+ 
+     bool try_lock() {
+         if (_owns_lock) {
+-            CHECK(false) << "Detected deadlock issue";     
++            //CHECK(false) << "Detected deadlock issue";     
+             return false;
+         }
+         _owns_lock = _mutex->try_lock();
+@@ -118,7 +118,7 @@ public:
+ 
+     void unlock() {
+         if (!_owns_lock) {
+-            CHECK(false) << "Invalid operation";
++            //CHECK(false) << "Invalid operation";
+             return;
+         }
+         _mutex->unlock();
+@@ -156,7 +156,7 @@ public:
+ #if !defined(NDEBUG)
+         const int rc = pthread_mutex_lock(_pmutex);
+         if (rc) {
+-            LOG(FATAL) << "Fail to lock pthread_mutex_t=" << _pmutex << ", " << berror(rc);
++            //LOG(FATAL) << "Fail to lock pthread_mutex_t=" << _pmutex << ", " << berror(rc);
+             _pmutex = NULL;
+         }
+ #else
+@@ -185,7 +185,7 @@ public:
+ #if !defined(NDEBUG)
+         const int rc = pthread_spin_lock(_pspin);
+         if (rc) {
+-            LOG(FATAL) << "Fail to lock pthread_spinlock_t=" << _pspin << ", " << berror(rc);
++            //LOG(FATAL) << "Fail to lock pthread_spinlock_t=" << _pspin << ", " << berror(rc);
+             _pspin = NULL;
+         }
+ #else
+@@ -235,13 +235,13 @@ public:
+ 
+     void lock() {
+         if (_owns_lock) {
+-            CHECK(false) << "Detected deadlock issue";     
++            //CHECK(false) << "Detected deadlock issue";     
+             return;
+         }
+ #if !defined(NDEBUG)
+         const int rc = pthread_mutex_lock(_mutex);
+         if (rc) {
+-            LOG(FATAL) << "Fail to lock pthread_mutex=" << _mutex << ", " << berror(rc);
++            //LOG(FATAL) << "Fail to lock pthread_mutex=" << _mutex << ", " << berror(rc);
+             return;
+         }
+         _owns_lock = true;
+@@ -253,7 +253,7 @@ public:
+ 
+     bool try_lock() {
+         if (_owns_lock) {
+-            CHECK(false) << "Detected deadlock issue";     
++            //CHECK(false) << "Detected deadlock issue";     
+             return false;
+         }
+         _owns_lock = !pthread_mutex_trylock(_mutex);
+@@ -262,7 +262,7 @@ public:
+ 
+     void unlock() {
+         if (!_owns_lock) {
+-            CHECK(false) << "Invalid operation";
++            //CHECK(false) << "Invalid operation";
+             return;
+         }
+         pthread_mutex_unlock(_mutex);
+@@ -317,13 +317,13 @@ public:
+ 
+     void lock() {
+         if (_owns_lock) {
+-            CHECK(false) << "Detected deadlock issue";     
++            //CHECK(false) << "Detected deadlock issue";     
+             return;
+         }
+ #if !defined(NDEBUG)
+         const int rc = pthread_spin_lock(_mutex);
+         if (rc) {
+-            LOG(FATAL) << "Fail to lock pthread_spinlock=" << _mutex << ", " << berror(rc);
++            //LOG(FATAL) << "Fail to lock pthread_spinlock=" << _mutex << ", " << berror(rc);
+             return;
+         }
+         _owns_lock = true;
+@@ -335,7 +335,7 @@ public:
+ 
+     bool try_lock() {
+         if (_owns_lock) {
+-            CHECK(false) << "Detected deadlock issue";     
++            //CHECK(false) << "Detected deadlock issue";     
+             return false;
+         }
+         _owns_lock = !pthread_spin_trylock(_mutex);
+@@ -344,7 +344,7 @@ public:
+ 
+     void unlock() {
+         if (!_owns_lock) {
+-            CHECK(false) << "Invalid operation";
++            //CHECK(false) << "Invalid operation";
+             return;
+         }
+         pthread_spin_unlock(_mutex);
+@@ -381,11 +381,11 @@ namespace butil {
+ // Lock both lck1 and lck2 without the dead lock issue
+ template <typename Mutex1, typename Mutex2>
+ void double_lock(std::unique_lock<Mutex1> &lck1, std::unique_lock<Mutex2> &lck2) {
+-    DCHECK(!lck1.owns_lock());
+-    DCHECK(!lck2.owns_lock());
++    //DCHECK(!lck1.owns_lock());
++    //DCHECK(!lck2.owns_lock());
+     volatile void* const ptr1 = lck1.mutex();
+     volatile void* const ptr2 = lck2.mutex();
+-    DCHECK_NE(ptr1, ptr2);
++    //DCHECK_NE(ptr1, ptr2);
+     if (ptr1 < ptr2) {
+         lck1.lock();
+         lck2.lock();
+diff --git a/src/butil/stl_util.h b/src/butil/stl_util.h
+index 19b638f..fa3e29f 100644
+--- a/src/butil/stl_util.h
++++ b/src/butil/stl_util.h
+@@ -13,7 +13,7 @@
+ #include <string>
+ #include <vector>
+ 
+-#include "butil/logging.h"
++//#include "butil/logging.h"
+ 
+ namespace butil {
+ 
+@@ -211,8 +211,8 @@ bool STLIsSorted(const Container& cont) {
+ // Returns a new ResultType containing the difference of two sorted containers.
+ template <typename ResultType, typename Arg1, typename Arg2>
+ ResultType STLSetDifference(const Arg1& a1, const Arg2& a2) {
+-  DCHECK(STLIsSorted(a1));
+-  DCHECK(STLIsSorted(a2));
++  //DCHECK(STLIsSorted(a1));
++  //DCHECK(STLIsSorted(a2));
+   ResultType difference;
+   std::set_difference(a1.begin(), a1.end(),
+                       a2.begin(), a2.end(),
+@@ -223,8 +223,8 @@ ResultType STLSetDifference(const Arg1& a1, const Arg2& a2) {
+ // Returns a new ResultType containing the union of two sorted containers.
+ template <typename ResultType, typename Arg1, typename Arg2>
+ ResultType STLSetUnion(const Arg1& a1, const Arg2& a2) {
+-  DCHECK(STLIsSorted(a1));
+-  DCHECK(STLIsSorted(a2));
++  //DCHECK(STLIsSorted(a1));
++  //DCHECK(STLIsSorted(a2));
+   ResultType result;
+   std::set_union(a1.begin(), a1.end(),
+                  a2.begin(), a2.end(),
+@@ -236,8 +236,8 @@ ResultType STLSetUnion(const Arg1& a1, const Arg2& a2) {
+ // containers.
+ template <typename ResultType, typename Arg1, typename Arg2>
+ ResultType STLSetIntersection(const Arg1& a1, const Arg2& a2) {
+-  DCHECK(STLIsSorted(a1));
+-  DCHECK(STLIsSorted(a2));
++  //DCHECK(STLIsSorted(a1));
++  //DCHECK(STLIsSorted(a2));
+   ResultType result;
+   std::set_intersection(a1.begin(), a1.end(),
+                         a2.begin(), a2.end(),
+@@ -249,8 +249,8 @@ ResultType STLSetIntersection(const Arg1& a1, const Arg2& a2) {
+ // container |a2|.
+ template <typename Arg1, typename Arg2>
+ bool STLIncludes(const Arg1& a1, const Arg2& a2) {
+-  DCHECK(STLIsSorted(a1));
+-  DCHECK(STLIsSorted(a2));
++  //DCHECK(STLIsSorted(a1));
++  //DCHECK(STLIsSorted(a2));
+   return std::includes(a1.begin(), a1.end(),
+                        a2.begin(), a2.end());
+ }
+diff --git a/src/butil/strings/string_util.h b/src/butil/strings/string_util.h
+index 23bc01e..e38b6e8 100644
+--- a/src/butil/strings/string_util.h
++++ b/src/butil/strings/string_util.h
+@@ -362,7 +362,7 @@ inline bool IsHexDigit(Char c) {
+ 
+ template <typename Char>
+ inline Char HexDigitToInt(Char c) {
+-  DCHECK(IsHexDigit(c));
++  //DCHECK(IsHexDigit(c));
+   if (c >= '0' && c <= '9')
+     return c - '0';
+   if (c >= 'A' && c <= 'F')
+@@ -435,7 +435,7 @@ BUTIL_EXPORT void ReplaceSubstringsAfterOffset(std::string* str,
+ template <class string_type>
+ inline typename string_type::value_type* WriteInto(string_type* str,
+                                                    size_t length_with_null) {
+-  DCHECK_GT(length_with_null, 1u);
++  //DCHECK_GT(length_with_null, 1u);
+   str->reserve(length_with_null);
+   str->resize(length_with_null - 1);
+   return &((*str)[0]);
+diff --git a/src/butil/strings/string_util_posix.h b/src/butil/strings/string_util_posix.h
+index 3496014..73add4e 100644
+--- a/src/butil/strings/string_util_posix.h
++++ b/src/butil/strings/string_util_posix.h
+@@ -10,7 +10,7 @@
+ #include <string.h>
+ #include <wchar.h>
+ 
+-#include "butil/logging.h"
++//#include "butil/logging.h"
+ 
+ namespace butil {
+ 
+@@ -43,7 +43,7 @@ inline int strncmp16(const char16* s1, const char16* s2, size_t count) {
+ 
+ inline int vswprintf(wchar_t* buffer, size_t size,
+                      const wchar_t* format, va_list arguments) {
+-  DCHECK(IsWprintfFormatPortable(format));
++  //DCHECK(IsWprintfFormatPortable(format));
+   return ::vswprintf(buffer, size, format, arguments);
+ }
+ 
+diff --git a/src/butil/strings/stringprintf.cc b/src/butil/strings/stringprintf.cc
+index 3f40e72..46efd74 100644
+--- a/src/butil/strings/stringprintf.cc
++++ b/src/butil/strings/stringprintf.cc
+@@ -9,6 +9,7 @@
+ #include "butil/scoped_clear_errno.h"
+ #include "butil/strings/string_util.h"
+ #include "butil/strings/utf_string_conversions.h"
++#include "butil/logging.h"
+ 
+ // gcc7 reports that the first arg to vsnprintfT in StringAppendVT is NULL,
+ // which I can't figure out why, turn off the warning right now.
+diff --git a/src/butil/strings/utf_string_conversions.cc b/src/butil/strings/utf_string_conversions.cc
+index 065fbe3..0c9d735 100644
+--- a/src/butil/strings/utf_string_conversions.cc
++++ b/src/butil/strings/utf_string_conversions.cc
+@@ -7,6 +7,7 @@
+ #include "butil/strings/string_piece.h"
+ #include "butil/strings/string_util.h"
+ #include "butil/strings/utf_string_conversion_utils.h"
++#include "butil/logging.h"
+ 
+ namespace butil {
+ 
+diff --git a/src/butil/synchronous_event.h b/src/butil/synchronous_event.h
+index b0839e5..c142ace 100644
+--- a/src/butil/synchronous_event.h
++++ b/src/butil/synchronous_event.h
+@@ -23,7 +23,7 @@
+ #include <vector>                             // std::vector
+ #include <algorithm>                          // std::find
+ #include <errno.h>                            // errno
+-#include "butil/logging.h"
++//#include "butil/logging.h"
+ 
+ // Synchronous event notification.
+ // Observers to an event will be called immediately in the same context where
+@@ -69,7 +69,7 @@ public:
+     // Returns 0 when successful, -1 when the obsever is NULL or already added. 
+     int subscribe(Observer* ob) {
+         if (NULL == ob) {
+-            LOG(ERROR) << "Observer is NULL";
++            //LOG(ERROR) << "Observer is NULL";
+             return -1;
+         }
+         if (std::find(_obs.begin(), _obs.end(), ob) != _obs.end()) {
+@@ -85,7 +85,7 @@ public:
+     // Returns 0 when successful, -1 when the observer is NULL or already removed.
+     int unsubscribe(Observer* ob) {
+         if (NULL == ob) {
+-            LOG(ERROR) << "Observer is NULL";
++            //LOG(ERROR) << "Observer is NULL";
+             return -1;
+         }
+         typename ObserverSet::iterator
+diff --git a/src/bvar/collector.cpp b/src/bvar/collector.cpp
+index c7844c1..545f9b9 100644
+--- a/src/bvar/collector.cpp
++++ b/src/bvar/collector.cpp
+@@ -22,6 +22,7 @@
+ #include "butil/memory/singleton_on_pthread_once.h"
+ #include "bvar/bvar.h"
+ #include "bvar/collector.h"
++#include "butil/logging.h"
+ 
+ namespace bvar {
+ 
+diff --git a/src/bvar/default_variables.cpp b/src/bvar/default_variables.cpp
+index be02c50..aede053 100644
+--- a/src/bvar/default_variables.cpp
++++ b/src/bvar/default_variables.cpp
+@@ -37,6 +37,7 @@
+ #include "butil/process_util.h"            // ReadCommandLine
+ #include "butil/popen.h"                   // read_command_output
+ #include "bvar/passive_status.h"
++#include "butil/logging.h"
+ 
+ namespace bvar {
+ 
 diff --git a/src/bvar/detail/agent_group.h b/src/bvar/detail/agent_group.h
 index ceb7c05..6363a8d 100644
 --- a/src/bvar/detail/agent_group.h
@@ -548,6 +1783,18 @@ index f04268d..48b6621 100644
          return std::numeric_limits<uint32_t>::max();
      }
  
+diff --git a/src/bvar/detail/sampler.cpp b/src/bvar/detail/sampler.cpp
+index 9ff91bf..0563b92 100644
+--- a/src/bvar/detail/sampler.cpp
++++ b/src/bvar/detail/sampler.cpp
+@@ -23,6 +23,7 @@
+ #include "bvar/detail/sampler.h"
+ #include "bvar/passive_status.h"
+ #include "bvar/window.h"
++#include "butil/logging.h"
+ 
+ namespace bvar {
+ namespace detail {
 diff --git a/src/bvar/detail/sampler.h b/src/bvar/detail/sampler.h
 index 85ec237..015865f 100644
 --- a/src/bvar/detail/sampler.h
@@ -619,6 +1866,18 @@ index 3ceb913..b0a0c83 100644
      pthread_mutex_lock(&this->_mutex);
      const int second_begin = this->_nsecond;
      const int minute_begin = this->_nminute;
+diff --git a/src/bvar/latency_recorder.cpp b/src/bvar/latency_recorder.cpp
+index ed91422..7831d63 100644
+--- a/src/bvar/latency_recorder.cpp
++++ b/src/bvar/latency_recorder.cpp
+@@ -20,6 +20,7 @@
+ #include <gflags/gflags.h>
+ #include "butil/unique_ptr.h"
+ #include "bvar/latency_recorder.h"
++#include "butil/logging.h"
+ 
+ namespace bvar {
+ 
 diff --git a/src/bvar/passive_status.h b/src/bvar/passive_status.h
 index eb4900d..8c6e361 100644
 --- a/src/bvar/passive_status.h
@@ -633,7 +1892,7 @@ index eb4900d..8c6e361 100644
      }
  
 diff --git a/src/bvar/recorder.h b/src/bvar/recorder.h
-index 33bb65d..98f2ac0 100644
+index 33bb65d..40572fe 100644
 --- a/src/bvar/recorder.h
 +++ b/src/bvar/recorder.h
 @@ -22,7 +22,7 @@
@@ -645,7 +1904,11 @@ index 33bb65d..98f2ac0 100644
  #include "bvar/detail/combiner.h"                // detail::AgentCombiner
  #include "bvar/variable.h"
  #include "bvar/window.h"
-@@ -248,19 +248,19 @@ inline IntRecorder& IntRecorder::operator<<(int64_t sample) {
+@@ -245,22 +245,23 @@ inline IntRecorder& IntRecorder::operator<<(int64_t sample) {
+             reason = "underflows";
+             sample = std::numeric_limits<int>::min();
+         }
++        (void)reason;
          // Truncate to be max or min of int. We're using 44 bits to store the
          // sum thus following aggregations are not likely to be over/underflow.
          if (!name().empty()) {
@@ -731,6 +1994,18 @@ index f41024a..6a9b154 100644
          return rc == 0;
  #else
          return pthread_mutex_destroy(mutex) == 0;
+diff --git a/src/bvar/variable.cpp b/src/bvar/variable.cpp
+index 17eeadc..cbbb05f 100644
+--- a/src/bvar/variable.cpp
++++ b/src/bvar/variable.cpp
+@@ -31,6 +31,7 @@
+ #include "butil/file_util.h"                     // butil::FilePath
+ #include "bvar/gflag.h"
+ #include "bvar/variable.h"
++#include "butil/logging.h"
+ 
+ namespace bvar {
+ 
 diff --git a/src/bvar/window.h b/src/bvar/window.h
 index a5780bf..2ebf306 100644
 --- a/src/bvar/window.h
@@ -753,3 +2028,27 @@ index a5780bf..2ebf306 100644
      }
      
      ~WindowBase() {
+diff --git a/tools/rpc_press/info_thread.cpp b/tools/rpc_press/info_thread.cpp
+index 99c9db1..51d0811 100644
+--- a/tools/rpc_press/info_thread.cpp
++++ b/tools/rpc_press/info_thread.cpp
+@@ -16,6 +16,7 @@
+ // under the License.
+ 
+ #include "info_thread.h"
++#include "butil/logging.h"
+ 
+ namespace brpc {
+ 
+diff --git a/tools/rpc_replay/info_thread.cpp b/tools/rpc_replay/info_thread.cpp
+index d20d70e..51078bf 100644
+--- a/tools/rpc_replay/info_thread.cpp
++++ b/tools/rpc_replay/info_thread.cpp
+@@ -16,6 +16,7 @@
+ // under the License.
+ 
+ #include "info_thread.h"
++#include "butil/logging.h"
+ 
+ namespace brpc {
+ 
