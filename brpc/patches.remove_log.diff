@@ -1307,6 +1307,19 @@ index 5961274..daab4b1 100644
  #include "brpc/log.h"
  #include "brpc/controller.h"
  #include "brpc/server.h"
+diff --git a/src/brpc/builtin/index_service.cpp b/src/brpc/builtin/index_service.cpp
+index f067b55..ecdc1c4 100644
+--- a/src/brpc/builtin/index_service.cpp
++++ b/src/brpc/builtin/index_service.cpp
+@@ -15,7 +15,7 @@
+ // specific language governing permissions and limitations
+ // under the License.
+ 
+-
++#include <sstream>
+ #include <gflags/gflags.h>                  // DECLARE_xxx
+ #include <google/protobuf/descriptor.h>
+ #include "butil/time.h"                      // gettimeofday_us
 diff --git a/src/brpc/channel_base.h b/src/brpc/channel_base.h
 index ed6ff24..132dd8f 100644
 --- a/src/brpc/channel_base.h
