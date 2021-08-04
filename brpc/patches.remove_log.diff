@@ -1598,6 +1598,32 @@ index 18f6a7a..6e6d255 100644
  
  namespace brpc {
  
+diff --git a/src/brpc/nshead_service.cpp b/src/brpc/nshead_service.cpp
+index 0f043e2..0dca955 100644
+--- a/src/brpc/nshead_service.cpp
++++ b/src/brpc/nshead_service.cpp
+@@ -19,7 +19,7 @@
+ #include "butil/class_name.h"
+ #include "brpc/nshead_service.h"
+ #include "brpc/details/method_status.h"
+-
++#include "butil/logging.h"
+ 
+ namespace brpc {
+ 
+diff --git a/src/brpc/parallel_channel.cpp b/src/brpc/parallel_channel.cpp
+index cf92e71..c21b29d 100644
+--- a/src/brpc/parallel_channel.cpp
++++ b/src/brpc/parallel_channel.cpp
+@@ -23,7 +23,7 @@
+ #include "butil/macros.h"
+ #include "brpc/details/controller_private_accessor.h"
+ #include "brpc/parallel_channel.h"
+-
++#include "butil/logging.h"
+ 
+ namespace brpc {
+ 
 diff --git a/src/brpc/partition_channel.cpp b/src/brpc/partition_channel.cpp
 index c15fddd..455c919 100644
 --- a/src/brpc/partition_channel.cpp
@@ -1622,6 +1648,42 @@ index 27ea3ec..23804e4 100644
  
  namespace brpc {
  
+diff --git a/src/brpc/policy/auto_concurrency_limiter.cpp b/src/brpc/policy/auto_concurrency_limiter.cpp
+index 628fe16..fff631a 100644
+--- a/src/brpc/policy/auto_concurrency_limiter.cpp
++++ b/src/brpc/policy/auto_concurrency_limiter.cpp
+@@ -19,6 +19,7 @@
+ #include <gflags/gflags.h>
+ #include "brpc/errno.pb.h"
+ #include "brpc/policy/auto_concurrency_limiter.h"
++#include "butil/logging.h"
+ 
+ namespace brpc {
+ namespace policy {
+diff --git a/src/brpc/policy/consistent_hashing_load_balancer.cpp b/src/brpc/policy/consistent_hashing_load_balancer.cpp
+index fd22380..07ba6da 100644
+--- a/src/brpc/policy/consistent_hashing_load_balancer.cpp
++++ b/src/brpc/policy/consistent_hashing_load_balancer.cpp
+@@ -21,6 +21,7 @@
+ #include <gflags/gflags.h>
+ #include "butil/containers/flat_map.h"
+ #include "butil/errno.h"
++#include "butil/logging.h"
+ #include "butil/strings/string_number_conversions.h"
+ #include "brpc/socket.h"
+ #include "brpc/policy/consistent_hashing_load_balancer.h"
+diff --git a/src/brpc/policy/constant_concurrency_limiter.cpp b/src/brpc/policy/constant_concurrency_limiter.cpp
+index 91ab7a8..876a0ec 100644
+--- a/src/brpc/policy/constant_concurrency_limiter.cpp
++++ b/src/brpc/policy/constant_concurrency_limiter.cpp
+@@ -16,6 +16,7 @@
+ // under the License.
+ 
+ #include "brpc/policy/constant_concurrency_limiter.h"
++#include "butil/logging.h"
+ 
+ namespace brpc {
+ namespace policy {
 diff --git a/src/brpc/policy/consul_naming_service.cpp b/src/brpc/policy/consul_naming_service.cpp
 index f4b2345..bf05d45 100644
 --- a/src/brpc/policy/consul_naming_service.cpp
@@ -1634,6 +1696,18 @@ index f4b2345..bf05d45 100644
  #include "brpc/log.h"
  #include "brpc/channel.h"
  #include "brpc/policy/file_naming_service.h"
+diff --git a/src/brpc/policy/discovery_naming_service.cpp b/src/brpc/policy/discovery_naming_service.cpp
+index 7efa536..e0a1012 100644
+--- a/src/brpc/policy/discovery_naming_service.cpp
++++ b/src/brpc/policy/discovery_naming_service.cpp
+@@ -22,6 +22,7 @@
+ #include "butil/third_party/rapidjson/writer.h"
+ #include "butil/string_printf.h"
+ #include "butil/fast_rand.h"
++#include "butil/logging.h"
+ #include "bthread/bthread.h"
+ #include "brpc/channel.h"
+ #include "brpc/controller.h"
 diff --git a/src/brpc/policy/domain_naming_service.cpp b/src/brpc/policy/domain_naming_service.cpp
 index aea943c..dc9c8a4 100644
 --- a/src/brpc/policy/domain_naming_service.cpp
@@ -1646,6 +1720,32 @@ index aea943c..dc9c8a4 100644
  #include "brpc/log.h"
  #include "brpc/policy/domain_naming_service.h"
  
+diff --git a/src/brpc/policy/dynpart_load_balancer.cpp b/src/brpc/policy/dynpart_load_balancer.cpp
+index 4785a0f..193394b 100644
+--- a/src/brpc/policy/dynpart_load_balancer.cpp
++++ b/src/brpc/policy/dynpart_load_balancer.cpp
+@@ -18,6 +18,7 @@
+ 
+ #include "butil/macros.h"
+ #include "butil/fast_rand.h"
++#include "butil/logging.h"
+ #include "brpc/socket.h"
+ #include "brpc/policy/dynpart_load_balancer.h"
+ 
+diff --git a/src/brpc/policy/esp_protocol.cpp b/src/brpc/policy/esp_protocol.cpp
+index 6665a1a..c7edb38 100644
+--- a/src/brpc/policy/esp_protocol.cpp
++++ b/src/brpc/policy/esp_protocol.cpp
+@@ -19,7 +19,8 @@
+ #include <google/protobuf/message.h>            // Message
+ #include <gflags/gflags.h>
+ 
+-#include "butil/time.h" 
++#include "butil/time.h"
++#include "butil/logging.h"
+ #include "butil/iobuf.h"                         // butil::IOBuf
+ 
+ #include "brpc/controller.h"               // Controller
 diff --git a/src/brpc/policy/file_naming_service.cpp b/src/brpc/policy/file_naming_service.cpp
 index df49673..9a32aba 100644
 --- a/src/brpc/policy/file_naming_service.cpp
@@ -1685,6 +1785,30 @@ index 8574723..f185569 100644
          return -1;
      }
      const int id = _last_sent_stream_id;
+diff --git a/src/brpc/policy/http_rpc_protocol.cpp b/src/brpc/policy/http_rpc_protocol.cpp
+index 450e28b..7a739d8 100644
+--- a/src/brpc/policy/http_rpc_protocol.cpp
++++ b/src/brpc/policy/http_rpc_protocol.cpp
+@@ -25,6 +25,7 @@
+ #include "butil/string_splitter.h"                  // StringMultiSplitter
+ #include "butil/string_printf.h"
+ #include "butil/time.h"
++#include "butil/logging.h"
+ #include "butil/sys_byteorder.h"
+ #include "brpc/compress.h"
+ #include "brpc/errno.pb.h"                     // ENOSERVICE, ENOMETHOD
+diff --git a/src/brpc/policy/hulu_pbrpc_protocol.cpp b/src/brpc/policy/hulu_pbrpc_protocol.cpp
+index 50660a0..969eab9 100644
+--- a/src/brpc/policy/hulu_pbrpc_protocol.cpp
++++ b/src/brpc/policy/hulu_pbrpc_protocol.cpp
+@@ -21,6 +21,7 @@
+ #include <google/protobuf/io/zero_copy_stream_impl_lite.h>
+ #include <google/protobuf/io/coded_stream.h>
+ #include "butil/time.h"
++#include "butil/logging.h"
+ #include "brpc/controller.h"                     // Controller
+ #include "brpc/socket.h"                         // Socket
+ #include "brpc/server.h"                         // Server
 diff --git a/src/brpc/policy/list_naming_service.cpp b/src/brpc/policy/list_naming_service.cpp
 index bffc9a0..7f93e7f 100644
 --- a/src/brpc/policy/list_naming_service.cpp
@@ -1722,6 +1846,32 @@ index 0e40101..9690b5d 100644
          }
  
          // Add diff to left_weight of all parent nodes of node `index'.
+diff --git a/src/brpc/policy/mongo_protocol.cpp b/src/brpc/policy/mongo_protocol.cpp
+index 82bb3e0..74d9ecf 100644
+--- a/src/brpc/policy/mongo_protocol.cpp
++++ b/src/brpc/policy/mongo_protocol.cpp
+@@ -18,7 +18,8 @@
+ #include <google/protobuf/descriptor.h>         // MethodDescriptor
+ #include <google/protobuf/message.h>            // Message
+ #include <gflags/gflags.h>
+-#include "butil/time.h" 
++#include "butil/time.h"
++#include "butil/logging.h"
+ #include "butil/iobuf.h"                         // butil::IOBuf
+ #include "brpc/controller.h"               // Controller
+ #include "brpc/socket.h"                   // Socket
+diff --git a/src/brpc/policy/nova_pbrpc_protocol.cpp b/src/brpc/policy/nova_pbrpc_protocol.cpp
+index e21b312..aace18c 100644
+--- a/src/brpc/policy/nova_pbrpc_protocol.cpp
++++ b/src/brpc/policy/nova_pbrpc_protocol.cpp
+@@ -22,6 +22,7 @@
+ 
+ #include "butil/time.h"
+ #include "butil/iobuf.h"                        // butil::IOBuf
++#include "butil/logging.h"
+ 
+ #include "brpc/controller.h"               // Controller
+ #include "brpc/socket.h"                   // Socket
 diff --git a/src/brpc/policy/nshead_protocol.cpp b/src/brpc/policy/nshead_protocol.cpp
 index 1c2186b..09f1903 100644
 --- a/src/brpc/policy/nshead_protocol.cpp
@@ -1734,6 +1884,30 @@ index 1c2186b..09f1903 100644
  #include "brpc/log.h"
  #include "brpc/controller.h"               // Controller
  #include "brpc/socket.h"                   // Socket
+diff --git a/src/brpc/policy/public_pbrpc_protocol.cpp b/src/brpc/policy/public_pbrpc_protocol.cpp
+index d1bc832..06c2f7a 100644
+--- a/src/brpc/policy/public_pbrpc_protocol.cpp
++++ b/src/brpc/policy/public_pbrpc_protocol.cpp
+@@ -21,6 +21,7 @@
+ #include <gflags/gflags.h>
+ #include "butil/third_party/snappy/snappy.h"        // snappy::Compress
+ #include "butil/time.h"
++#include "butil/logging.h"
+ #include "brpc/controller.h"                       // Controller
+ #include "brpc/socket.h"                           // Socket
+ #include "brpc/server.h"                           // Server
+diff --git a/src/brpc/policy/randomized_load_balancer.cpp b/src/brpc/policy/randomized_load_balancer.cpp
+index cac695a..517ad8b 100644
+--- a/src/brpc/policy/randomized_load_balancer.cpp
++++ b/src/brpc/policy/randomized_load_balancer.cpp
+@@ -18,6 +18,7 @@
+ 
+ #include "butil/macros.h"
+ #include "butil/fast_rand.h"
++#include "butil/logging.h"
+ #include "brpc/socket.h"
+ #include "brpc/policy/randomized_load_balancer.h"
+ #include "butil/strings/string_number_conversions.h"
 diff --git a/src/brpc/policy/remote_file_naming_service.cpp b/src/brpc/policy/remote_file_naming_service.cpp
 index c5aeac9..be20126 100644
 --- a/src/brpc/policy/remote_file_naming_service.cpp
@@ -1746,6 +1920,18 @@ index c5aeac9..be20126 100644
  #include "brpc/log.h"
  #include "brpc/channel.h"
  #include "brpc/policy/remote_file_naming_service.h"
+diff --git a/src/brpc/policy/round_robin_load_balancer.cpp b/src/brpc/policy/round_robin_load_balancer.cpp
+index ee7fa53..4d562af 100644
+--- a/src/brpc/policy/round_robin_load_balancer.cpp
++++ b/src/brpc/policy/round_robin_load_balancer.cpp
+@@ -18,6 +18,7 @@
+ 
+ #include "butil/macros.h"
+ #include "butil/fast_rand.h"
++#include "butil/logging.h"
+ #include "brpc/socket.h"
+ #include "brpc/policy/round_robin_load_balancer.h"
+ 
 diff --git a/src/brpc/policy/rtmp_protocol.cpp b/src/brpc/policy/rtmp_protocol.cpp
 index 2e7d509..64535cd 100644
 --- a/src/brpc/policy/rtmp_protocol.cpp
@@ -1771,6 +1957,18 @@ index b5572c2..1a88d08 100644
      char* out = *buf;
      out[0] = p[2];
      out[1] = p[1];
+diff --git a/src/brpc/policy/sofa_pbrpc_protocol.cpp b/src/brpc/policy/sofa_pbrpc_protocol.cpp
+index 27d8037..33f09b7 100644
+--- a/src/brpc/policy/sofa_pbrpc_protocol.cpp
++++ b/src/brpc/policy/sofa_pbrpc_protocol.cpp
+@@ -21,6 +21,7 @@
+ #include <google/protobuf/io/zero_copy_stream_impl_lite.h>
+ #include <google/protobuf/io/coded_stream.h>
+ #include "butil/time.h"
++#include "butil/logging.h"
+ #include "brpc/controller.h"                // Controller
+ #include "brpc/socket.h"                    // Socket
+ #include "brpc/server.h"                    // Server
 diff --git a/src/brpc/policy/thrift_protocol.cpp b/src/brpc/policy/thrift_protocol.cpp
 index eae081a..124b2ed 100755
 --- a/src/brpc/policy/thrift_protocol.cpp
@@ -1783,6 +1981,18 @@ index eae081a..124b2ed 100755
  #include "brpc/log.h"
  #include "brpc/controller.h"                    // Controller
  #include "brpc/socket.h"                        // Socket
+diff --git a/src/brpc/policy/weighted_round_robin_load_balancer.cpp b/src/brpc/policy/weighted_round_robin_load_balancer.cpp
+index 1e6add5..9a4080f 100644
+--- a/src/brpc/policy/weighted_round_robin_load_balancer.cpp
++++ b/src/brpc/policy/weighted_round_robin_load_balancer.cpp
+@@ -19,6 +19,7 @@
+ #include <algorithm>
+ 
+ #include "butil/fast_rand.h"
++#include "butil/logging.h"
+ #include "brpc/socket.h"
+ #include "brpc/policy/weighted_round_robin_load_balancer.h"
+ #include "butil/strings/string_number_conversions.h"
 diff --git a/src/brpc/protocol.h b/src/brpc/protocol.h
 index c1e0602..f8fcea7 100755
 --- a/src/brpc/protocol.h
@@ -1805,6 +2015,18 @@ index c1e0602..f8fcea7 100755
              static T dummy;
              return dummy;
          }
+diff --git a/src/brpc/redis.cpp b/src/brpc/redis.cpp
+index 7cfc21f..c52384b 100644
+--- a/src/brpc/redis.cpp
++++ b/src/brpc/redis.cpp
+@@ -19,6 +19,7 @@
+ #include <google/protobuf/reflection_ops.h>     // ReflectionOps::Merge
+ #include <gflags/gflags.h>
+ #include "butil/status.h"
++#include "butil/logging.h"
+ #include "butil/strings/string_util.h"          // StringToLowerASCII
+ #include "brpc/redis.h"
+ #include "brpc/redis_command.h"
 diff --git a/src/brpc/redis_reply.h b/src/brpc/redis_reply.h
 index d2515d8..a608bcc 100644
 --- a/src/brpc/redis_reply.h
@@ -1862,6 +2084,18 @@ index d2515d8..a608bcc 100644
      return "";
  }
  
+diff --git a/src/brpc/restful.cpp b/src/brpc/restful.cpp
+index 32554e8..9752731 100644
+--- a/src/brpc/restful.cpp
++++ b/src/brpc/restful.cpp
+@@ -17,6 +17,7 @@
+ 
+ 
+ #include <google/protobuf/descriptor.h>
++#include "butil/logging.h"
+ #include "brpc/log.h"
+ #include "brpc/restful.h"
+ #include "brpc/details/method_status.h"
 diff --git a/src/brpc/rpc_dump.cpp b/src/brpc/rpc_dump.cpp
 index bf3d7fc..625ffe1 100644
 --- a/src/brpc/rpc_dump.cpp
@@ -1886,6 +2120,19 @@ index 3797972..2baebe7 100644
  #include "brpc/log.h"
  #include "brpc/callback.h"                   // Closure
  #include "brpc/channel.h"                    // Channel
+diff --git a/src/brpc/selective_channel.cpp b/src/brpc/selective_channel.cpp
+index 66a916b..fbcdcc4 100644
+--- a/src/brpc/selective_channel.cpp
++++ b/src/brpc/selective_channel.cpp
+@@ -24,7 +24,7 @@
+ #include "brpc/details/controller_private_accessor.h"        // RPCSender
+ #include "brpc/selective_channel.h"
+ #include "brpc/global.h"
+-
++#include "butil/logging.h"
+ 
+ namespace brpc {
+ 
 diff --git a/src/brpc/server_id.cpp b/src/brpc/server_id.cpp
 index c3a595b..57314a0 100644
 --- a/src/brpc/server_id.cpp
