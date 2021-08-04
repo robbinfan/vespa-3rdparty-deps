@@ -1502,6 +1502,19 @@ index 96bb326..a262e72 100644
  #include "brpc/log.h"
  #include "brpc/reloadable_flags.h"
  #include "brpc/details/http_message.h"
+diff --git a/src/brpc/details/load_balancer_with_naming.cpp b/src/brpc/details/load_balancer_with_naming.cpp
+index 2fad84b..e6733ba 100644
+--- a/src/brpc/details/load_balancer_with_naming.cpp
++++ b/src/brpc/details/load_balancer_with_naming.cpp
+@@ -17,7 +17,7 @@
+ 
+ 
+ #include "brpc/details/load_balancer_with_naming.h"
+-
++#include "butil/logging.h"
+ 
+ namespace brpc {
+ 
 diff --git a/src/brpc/details/server_private_accessor.h b/src/brpc/details/server_private_accessor.h
 index aacf283..c2d84dd 100644
 --- a/src/brpc/details/server_private_accessor.h
