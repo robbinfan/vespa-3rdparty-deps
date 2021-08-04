@@ -1,3 +1,1275 @@
+diff --git a/Makefile b/Makefile
+index 9c5ad77..7e0f593 100644
+--- a/Makefile
++++ b/Makefile
+@@ -1,333 +1,922 @@
+-# Licensed to the Apache Software Foundation (ASF) under one
+-# or more contributor license agreements.  See the NOTICE file
+-# distributed with this work for additional information
+-# regarding copyright ownership.  The ASF licenses this file
+-# to you under the Apache License, Version 2.0 (the
+-# "License"); you may not use this file except in compliance
+-# with the License.  You may obtain a copy of the License at
+-#
+-#   http://www.apache.org/licenses/LICENSE-2.0
+-#
+-# Unless required by applicable law or agreed to in writing,
+-# software distributed under the License is distributed on an
+-# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+-# KIND, either express or implied.  See the License for the
+-# specific language governing permissions and limitations
+-# under the License.
+-
+-NEED_LIBPROTOC=1
+-include config.mk
+-
+-# Notes on the flags:
+-# 1. Added -fno-omit-frame-pointer: perf/tcmalloc-profiler use frame pointers by default
+-# 2. Added -D__const__= : Avoid over-optimizations of TLS variables by GCC>=4.8
+-# 3. Removed -Werror: Not block compilation for non-vital warnings, especially when the
+-#    code is tested on newer systems. If the code is used in production, add -Werror back
+-CPPFLAGS+=-DBTHREAD_USE_FAST_PTHREAD_MUTEX -D__const__= -D_GNU_SOURCE -DUSE_SYMBOLIZE -DNO_TCMALLOC -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS -D__STDC_CONSTANT_MACROS -DNDEBUG -DBRPC_REVISION=\"$(shell ./tools/get_brpc_revision.sh .)\"
+-CXXFLAGS=$(CPPFLAGS) -O2 -pipe -Wall -W -fPIC -fstrict-aliasing -Wno-invalid-offsetof -Wno-unused-parameter -fno-omit-frame-pointer -std=c++0x
+-CFLAGS=$(CPPFLAGS) -O2 -pipe -Wall -W -fPIC -fstrict-aliasing -Wno-unused-parameter -fno-omit-frame-pointer
+-DEBUG_CXXFLAGS = $(filter-out -DNDEBUG,$(CXXFLAGS)) -DUNIT_TEST -DBVAR_NOT_LINK_DEFAULT_VARIABLES
+-DEBUG_CFLAGS = $(filter-out -DNDEBUG,$(CFLAGS)) -DUNIT_TEST
+-HDRPATHS=-I./src $(addprefix -I, $(HDRS))
+-LIBPATHS = $(addprefix -L, $(LIBS))
+-COMMA = ,
+-SOPATHS = $(addprefix -Wl$(COMMA)-rpath$(COMMA), $(LIBS))
+-SRCEXTS = .c .cc .cpp .proto
+-
+-SOEXT = so
+-ifeq ($(SYSTEM),Darwin)
+-    SOEXT = dylib
+-endif
+-
+-#required by butil/crc32.cc to boost performance for 10x
+-ifeq ($(shell test $(GCC_VERSION) -ge 40400; echo $$?),0)
+-	CXXFLAGS+=-msse4 -msse4.2
+-endif
+-#not solved yet
+-ifeq ($(CC),gcc)
+- ifeq ($(shell test $(GCC_VERSION) -ge 70000; echo $$?),0)
+-	CXXFLAGS+=-Wno-aligned-new
+- endif
+-endif
+-
+-BUTIL_SOURCES = \
+-    src/butil/third_party/dmg_fp/g_fmt.cc \
+-    src/butil/third_party/dmg_fp/dtoa_wrapper.cc \
+-    src/butil/third_party/dynamic_annotations/dynamic_annotations.c \
+-    src/butil/third_party/icu/icu_utf.cc \
+-    src/butil/third_party/superfasthash/superfasthash.c \
+-    src/butil/third_party/modp_b64/modp_b64.cc \
+-    src/butil/third_party/symbolize/demangle.cc \
+-    src/butil/third_party/symbolize/symbolize.cc \
+-    src/butil/third_party/snappy/snappy-sinksource.cc \
+-    src/butil/third_party/snappy/snappy-stubs-internal.cc \
+-    src/butil/third_party/snappy/snappy.cc \
+-    src/butil/third_party/murmurhash3/murmurhash3.cpp \
+-    src/butil/arena.cpp \
+-    src/butil/at_exit.cc \
+-    src/butil/atomicops_internals_x86_gcc.cc \
+-    src/butil/base64.cc \
+-    src/butil/big_endian.cc \
+-    src/butil/cpu.cc \
+-    src/butil/debug/alias.cc \
+-    src/butil/debug/asan_invalid_access.cc \
+-    src/butil/debug/crash_logging.cc \
+-    src/butil/debug/debugger.cc \
+-    src/butil/debug/debugger_posix.cc \
+-    src/butil/debug/dump_without_crashing.cc \
+-    src/butil/debug/proc_maps_linux.cc \
+-    src/butil/debug/stack_trace.cc \
+-    src/butil/debug/stack_trace_posix.cc \
+-    src/butil/environment.cc \
+-    src/butil/files/file.cc \
+-    src/butil/files/file_posix.cc \
+-    src/butil/files/file_enumerator.cc \
+-    src/butil/files/file_enumerator_posix.cc \
+-    src/butil/files/file_path.cc \
+-    src/butil/files/file_path_constants.cc \
+-    src/butil/files/memory_mapped_file.cc \
+-    src/butil/files/memory_mapped_file_posix.cc \
+-    src/butil/files/scoped_file.cc \
+-    src/butil/files/scoped_temp_dir.cc \
+-    src/butil/file_util.cc \
+-    src/butil/file_util_posix.cc \
+-    src/butil/guid.cc \
+-    src/butil/guid_posix.cc \
+-    src/butil/hash.cc \
+-    src/butil/lazy_instance.cc \
+-    src/butil/location.cc \
+-    src/butil/memory/aligned_memory.cc \
+-    src/butil/memory/ref_counted.cc \
+-    src/butil/memory/ref_counted_memory.cc \
+-    src/butil/memory/singleton.cc \
+-    src/butil/memory/weak_ptr.cc \
+-    src/butil/posix/file_descriptor_shuffle.cc \
+-    src/butil/posix/global_descriptors.cc \
+-    src/butil/process_util.cc \
+-    src/butil/rand_util.cc \
+-    src/butil/rand_util_posix.cc \
+-    src/butil/fast_rand.cpp \
+-    src/butil/safe_strerror_posix.cc \
+-    src/butil/sha1_portable.cc \
+-    src/butil/strings/latin1_string_conversions.cc \
+-    src/butil/strings/nullable_string16.cc \
+-    src/butil/strings/safe_sprintf.cc \
+-    src/butil/strings/string16.cc \
+-    src/butil/strings/string_number_conversions.cc \
+-    src/butil/strings/string_split.cc \
+-    src/butil/strings/string_piece.cc \
+-    src/butil/strings/string_util.cc \
+-    src/butil/strings/string_util_constants.cc \
+-    src/butil/strings/stringprintf.cc \
+-    src/butil/strings/utf_offset_string_conversions.cc \
+-    src/butil/strings/utf_string_conversion_utils.cc \
+-    src/butil/strings/utf_string_conversions.cc \
+-    src/butil/synchronization/cancellation_flag.cc \
+-    src/butil/synchronization/condition_variable_posix.cc \
+-    src/butil/synchronization/waitable_event_posix.cc \
+-    src/butil/threading/non_thread_safe_impl.cc \
+-    src/butil/threading/platform_thread_posix.cc \
+-    src/butil/threading/simple_thread.cc \
+-    src/butil/threading/thread_checker_impl.cc \
+-    src/butil/threading/thread_collision_warner.cc \
+-    src/butil/threading/thread_id_name_manager.cc \
+-    src/butil/threading/thread_local_posix.cc \
+-    src/butil/threading/thread_local_storage.cc \
+-    src/butil/threading/thread_local_storage_posix.cc \
+-    src/butil/threading/thread_restrictions.cc \
+-    src/butil/threading/watchdog.cc \
+-    src/butil/time/clock.cc \
+-    src/butil/time/default_clock.cc \
+-    src/butil/time/default_tick_clock.cc \
+-    src/butil/time/tick_clock.cc \
+-    src/butil/time/time.cc \
+-    src/butil/time/time_posix.cc \
+-    src/butil/version.cc \
+-    src/butil/logging.cc \
+-    src/butil/class_name.cpp \
+-    src/butil/errno.cpp \
+-    src/butil/find_cstr.cpp \
+-    src/butil/status.cpp \
+-    src/butil/string_printf.cpp \
+-    src/butil/thread_local.cpp \
+-    src/butil/unix_socket.cpp \
+-    src/butil/endpoint.cpp \
+-    src/butil/fd_utility.cpp \
+-    src/butil/files/temp_file.cpp \
+-    src/butil/files/file_watcher.cpp \
+-    src/butil/time.cpp \
+-    src/butil/zero_copy_stream_as_streambuf.cpp \
+-    src/butil/crc32c.cc \
+-    src/butil/containers/case_ignored_flat_map.cpp \
+-    src/butil/iobuf.cpp \
+-    src/butil/binary_printer.cpp \
+-    src/butil/recordio.cc \
+-    src/butil/popen.cpp
+-
+-ifeq ($(SYSTEM), Linux)
+-    BUTIL_SOURCES += src/butil/file_util_linux.cc \
+-        src/butil/threading/platform_thread_linux.cc \
+-        src/butil/strings/sys_string_conversions_posix.cc
+-endif
+-ifeq ($(SYSTEM), Darwin)
+-    BUTIL_SOURCES += src/butil/mac/bundle_locations.mm \
+-		src/butil/mac/foundation_util.mm \
+-		src/butil/file_util_mac.mm \
+-		src/butil/threading/platform_thread_mac.mm \
+-		src/butil/strings/sys_string_conversions_mac.mm \
+-		src/butil/time/time_mac.cc \
+-		src/butil/mac/scoped_mach_port.cc
+-endif
+-
+-BUTIL_OBJS = $(addsuffix .o, $(basename $(BUTIL_SOURCES)))
+-
+-BVAR_DIRS = src/bvar src/bvar/detail
+-BVAR_SOURCES = $(foreach d,$(BVAR_DIRS),$(wildcard $(addprefix $(d)/*,$(SRCEXTS))))
+-BVAR_OBJS = $(addsuffix .o, $(basename $(BVAR_SOURCES))) 
+-
+-BTHREAD_DIRS = src/bthread
+-BTHREAD_SOURCES = $(foreach d,$(BTHREAD_DIRS),$(wildcard $(addprefix $(d)/*,$(SRCEXTS))))
+-BTHREAD_OBJS = $(addsuffix .o, $(basename $(BTHREAD_SOURCES))) 
+-
+-JSON2PB_DIRS = src/json2pb
+-JSON2PB_SOURCES = $(foreach d,$(JSON2PB_DIRS),$(wildcard $(addprefix $(d)/*,$(SRCEXTS))))
+-JSON2PB_OBJS = $(addsuffix .o, $(basename $(JSON2PB_SOURCES))) 
+-
+-BRPC_DIRS = src/brpc src/brpc/details src/brpc/builtin src/brpc/policy
+-THRIFT_SOURCES = $(foreach d,$(BRPC_DIRS),$(wildcard $(addprefix $(d)/thrift*,$(SRCEXTS))))
+-BRPC_SOURCES_ALL = $(foreach d,$(BRPC_DIRS),$(wildcard $(addprefix $(d)/*,$(SRCEXTS))))
+-BRPC_SOURCES = $(filter-out $(THRIFT_SOURCES), $(BRPC_SOURCES_ALL))
+-BRPC_PROTOS = $(filter %.proto,$(BRPC_SOURCES))
+-BRPC_CFAMILIES = $(filter-out %.proto %.pb.cc,$(BRPC_SOURCES))
+-BRPC_OBJS = $(BRPC_PROTOS:.proto=.pb.o) $(addsuffix .o, $(basename $(BRPC_CFAMILIES)))
+-
+-MCPACK2PB_SOURCES = \
+-	src/mcpack2pb/field_type.cpp \
+-	src/mcpack2pb/mcpack2pb.cpp \
+-	src/mcpack2pb/parser.cpp \
+-	src/mcpack2pb/serializer.cpp
+-MCPACK2PB_OBJS = src/idl_options.pb.o $(addsuffix .o, $(basename $(MCPACK2PB_SOURCES)))
+-
+-ifeq (ENABLE_THRIFT_FRAMED_PROTOCOL, $(findstring ENABLE_THRIFT_FRAMED_PROTOCOL, $(CPPFLAGS)))
+-    THRIFT_OBJS = $(addsuffix .o, $(basename $(THRIFT_SOURCES)))
+-endif
+-
+-OBJS=$(BUTIL_OBJS) $(BVAR_OBJS) $(BTHREAD_OBJS) $(JSON2PB_OBJS) $(MCPACK2PB_OBJS) $(BRPC_OBJS) $(THRIFT_OBJS)
+-
+-BVAR_DEBUG_OBJS=$(BUTIL_OBJS:.o=.dbg.o) $(BVAR_OBJS:.o=.dbg.o)
+-DEBUG_OBJS = $(OBJS:.o=.dbg.o)
+-
+-PROTOS=$(BRPC_PROTOS) src/idl_options.proto
+-
+-.PHONY:all
+-all:  protoc-gen-mcpack libbrpc.a libbrpc.$(SOEXT) output/include output/lib output/bin
+-
+-.PHONY:debug
+-debug: test/libbrpc.dbg.$(SOEXT) test/libbvar.dbg.a
+-
+-.PHONY:clean
++# CMAKE generated file: DO NOT EDIT!
++# Generated by "Unix Makefiles" Generator, CMake Version 3.17
++
++# Default target executed when no arguments are given to make.
++default_target: all
++
++.PHONY : default_target
++
++# Allow only one "make -f Makefile2" at a time, but pass parallelism.
++.NOTPARALLEL:
++
++
++#=============================================================================
++# Special targets provided by cmake.
++
++# Disable implicit rules so canonical targets will work.
++.SUFFIXES:
++
++
++# Disable VCS-based implicit rules.
++% : %,v
++
++
++# Disable VCS-based implicit rules.
++% : RCS/%
++
++
++# Disable VCS-based implicit rules.
++% : RCS/%,v
++
++
++# Disable VCS-based implicit rules.
++% : SCCS/s.%
++
++
++# Disable VCS-based implicit rules.
++% : s.%
++
++
++.SUFFIXES: .hpux_make_needs_suffix_list
++
++
++# Command-line flag to silence nested $(MAKE).
++$(VERBOSE)MAKESILENT = -s
++
++# Suppress display of executed commands.
++$(VERBOSE).SILENT:
++
++
++# A target that is always out of date.
++cmake_force:
++
++.PHONY : cmake_force
++
++#=============================================================================
++# Set environment variables for the build.
++
++# The shell in which to execute make rules.
++SHELL = /bin/sh
++
++# The CMake executable.
++CMAKE_COMMAND = /usr/bin/cmake3
++
++# The command to remove a file.
++RM = /usr/bin/cmake3 -E rm -f
++
++# Escaping for special characters.
++EQUALS = =
++
++# The top-level source directory on which CMake was run.
++CMAKE_SOURCE_DIR = /home/fanyu/Downloads/incubator-brpc
++
++# The top-level build directory on which CMake was run.
++CMAKE_BINARY_DIR = /home/fanyu/Downloads/incubator-brpc
++
++#=============================================================================
++# Targets provided globally by CMake.
++
++# Special rule for the target install
++install: preinstall
++	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Install the project..."
++	/usr/bin/cmake3 -P cmake_install.cmake
++.PHONY : install
++
++# Special rule for the target install
++install/fast: preinstall/fast
++	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Install the project..."
++	/usr/bin/cmake3 -P cmake_install.cmake
++.PHONY : install/fast
++
++# Special rule for the target list_install_components
++list_install_components:
++	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Available install components are: \"Unspecified\""
++.PHONY : list_install_components
++
++# Special rule for the target list_install_components
++list_install_components/fast: list_install_components
++
++.PHONY : list_install_components/fast
++
++# Special rule for the target rebuild_cache
++rebuild_cache:
++	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Running CMake to regenerate build system..."
++	/usr/bin/cmake3 --regenerate-during-build -S$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR)
++.PHONY : rebuild_cache
++
++# Special rule for the target rebuild_cache
++rebuild_cache/fast: rebuild_cache
++
++.PHONY : rebuild_cache/fast
++
++# Special rule for the target edit_cache
++edit_cache:
++	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Running CMake cache editor..."
++	/usr/bin/ccmake3 -S$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR)
++.PHONY : edit_cache
++
++# Special rule for the target edit_cache
++edit_cache/fast: edit_cache
++
++.PHONY : edit_cache/fast
++
++# Special rule for the target package_source
++package_source:
++	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Run CPack packaging tool for source..."
++	/usr/bin/cpack3 --config ./CPackSourceConfig.cmake /home/fanyu/Downloads/incubator-brpc/CPackSourceConfig.cmake
++.PHONY : package_source
++
++# Special rule for the target package_source
++package_source/fast: package_source
++
++.PHONY : package_source/fast
++
++# Special rule for the target package
++package: preinstall
++	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Run CPack packaging tool..."
++	/usr/bin/cpack3 --config ./CPackConfig.cmake
++.PHONY : package
++
++# Special rule for the target package
++package/fast: package
++
++.PHONY : package/fast
++
++# Special rule for the target install/strip
++install/strip: preinstall
++	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Installing the project stripped..."
++	/usr/bin/cmake3 -DCMAKE_INSTALL_DO_STRIP=1 -P cmake_install.cmake
++.PHONY : install/strip
++
++# Special rule for the target install/strip
++install/strip/fast: preinstall/fast
++	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Installing the project stripped..."
++	/usr/bin/cmake3 -DCMAKE_INSTALL_DO_STRIP=1 -P cmake_install.cmake
++.PHONY : install/strip/fast
++
++# Special rule for the target install/local
++install/local: preinstall
++	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Installing only the local directory..."
++	/usr/bin/cmake3 -DCMAKE_INSTALL_LOCAL_ONLY=1 -P cmake_install.cmake
++.PHONY : install/local
++
++# Special rule for the target install/local
++install/local/fast: preinstall/fast
++	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Installing only the local directory..."
++	/usr/bin/cmake3 -DCMAKE_INSTALL_LOCAL_ONLY=1 -P cmake_install.cmake
++.PHONY : install/local/fast
++
++# The main all target
++all: cmake_check_build_system
++	$(CMAKE_COMMAND) -E cmake_progress_start /home/fanyu/Downloads/incubator-brpc/CMakeFiles /home/fanyu/Downloads/incubator-brpc/CMakeFiles/progress.marks
++	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 all
++	$(CMAKE_COMMAND) -E cmake_progress_start /home/fanyu/Downloads/incubator-brpc/CMakeFiles 0
++.PHONY : all
++
++# The main clean target
+ clean:
+-	@echo "Cleaning"
+-	@rm -rf src/mcpack2pb/generator.o protoc-gen-mcpack libbrpc.a libbrpc.$(SOEXT) $(OBJS) output/include output/lib output/bin $(PROTOS:.proto=.pb.h) $(PROTOS:.proto=.pb.cc)
+-
+-.PHONY:clean_debug
+-clean_debug:
+-	@rm -rf test/libbrpc.dbg.$(SOEXT) test/libbvar.dbg.a $(DEBUG_OBJS)
+-
+-.PRECIOUS: %.o
+-
+-protoc-gen-mcpack: src/idl_options.pb.cc src/mcpack2pb/generator.o libbrpc.a
+-	@echo "Linking $@"
+-ifeq ($(SYSTEM),Linux)
+-	@$(CXX) -o $@ $(HDRPATHS) $(LIBPATHS) -std=c++0x -Xlinker "-(" $^ -Wl,-Bstatic $(STATIC_LINKINGS) -Wl,-Bdynamic -Xlinker "-)" $(DYNAMIC_LINKINGS)
+-else ifeq ($(SYSTEM),Darwin)
+-	@$(CXX) -o $@ $(HDRPATHS) $(LIBPATHS) -std=c++0x $^ $(STATIC_LINKINGS) $(DYNAMIC_LINKINGS)
+-endif
+-
+-# force generation of pb headers before compiling to avoid fail-to-import issues in compiling pb.cc
+-libbrpc.a:$(BRPC_PROTOS:.proto=.pb.h) $(OBJS)
+-	@echo "Packing $@"
+-	@ar crs $@ $(filter %.o,$^)
+-
+-libbrpc.$(SOEXT):$(BRPC_PROTOS:.proto=.pb.h) $(OBJS)
+-	@echo "Linking $@"
+-ifeq ($(SYSTEM),Linux)
+-	@$(CXX) -shared -o $@ $(LIBPATHS) $(SOPATHS) -Xlinker "-(" $(filter %.o,$^) -Xlinker "-)" $(STATIC_LINKINGS) $(DYNAMIC_LINKINGS)
+-else ifeq ($(SYSTEM),Darwin)
+-	@$(CXX) -dynamiclib -Wl,-headerpad_max_install_names -o $@ -install_name @rpath/$@ $(LIBPATHS) $(SOPATHS) $(filter %.o,$^) $(STATIC_LINKINGS) $(DYNAMIC_LINKINGS)
+-endif
+-
+-test/libbvar.dbg.a:$(BVAR_DEBUG_OBJS)
+-	@echo "Packing $@"
+-	@ar crs $@ $^
+-
+-test/libbrpc.dbg.$(SOEXT):$(BRPC_PROTOS:.proto=.pb.h) $(DEBUG_OBJS)
+-	@echo "Linking $@"
+-ifeq ($(SYSTEM),Linux)
+-	@$(CXX) -shared -o $@ $(LIBPATHS) $(SOPATHS) -Xlinker "-(" $(filter %.o,$^) -Xlinker "-)" $(STATIC_LINKINGS) $(DYNAMIC_LINKINGS)
+-else ifeq ($(SYSTEM),Darwin)
+-	@$(CXX) -dynamiclib -Wl,-headerpad_max_install_names -o $@ -install_name @rpath/libbrpc.dbg.$(SOEXT) $(LIBPATHS) $(SOPATHS) $(filter %.o,$^) $(STATIC_LINKINGS) $(DYNAMIC_LINKINGS)
+-endif
+-
+-.PHONY:output/include
+-output/include:
+-	@echo "Copying to $@"
+-	@for dir in `find src -type f -name "*.h" -exec dirname {} \\; | sed -e 's/^src\///g' -e '/^src$$/d' | sort | uniq`; do mkdir -p $@/$$dir && cp src/$$dir/*.h $@/$$dir/; done
+-	@for dir in `find src -type f -name "*.hpp" -exec dirname {} \\; | sed -e 's/^src\///g' -e '/^src$$/d' | sort | uniq`; do mkdir -p $@/$$dir && cp src/$$dir/*.hpp $@/$$dir/; done
+-	@cp src/idl_options.proto src/idl_options.pb.h $@
+-
+-.PHONY:output/lib
+-output/lib:libbrpc.a libbrpc.$(SOEXT)
+-	@echo "Copying to $@"
+-	@mkdir -p $@
+-	@cp $^ $@
+-
+-.PHONY:output/bin
+-output/bin:protoc-gen-mcpack
+-	@echo "Copying to $@"
+-	@mkdir -p $@
+-	@cp $^ $@
+-
+-%.pb.cc %.pb.h:%.proto
+-	@echo "Generating $@"
+-	@$(PROTOC) --cpp_out=./src --proto_path=./src --proto_path=$(PROTOBUF_HDR) $<
+-
+-%.o:%.cpp
+-	@echo "Compiling $@"
+-	@$(CXX) -c $(HDRPATHS) $(CXXFLAGS) $< -o $@
+-
+-%http2_rpc_protocol.dbg.o:%http2_rpc_protocol.cpp
+-	@echo "Compiling $@ with O2"
+-	@$(CXX) -c $(HDRPATHS) -O2 $(DEBUG_CXXFLAGS) $< -o $@
+-
+-%hpack.dbg.o:%hpack.cpp
+-	@echo "Compiling $@ with O2"
+-	@$(CXX) -c $(HDRPATHS) -O2 $(DEBUG_CXXFLAGS) $< -o $@
+-
+-%.dbg.o:%.cpp
+-	@echo "Compiling $@"
+-	@$(CXX) -c $(HDRPATHS) $(DEBUG_CXXFLAGS) $< -o $@
+-
+-%.o:%.cc
+-	@echo "Compiling $@"
+-	@$(CXX) -c $(HDRPATHS) $(CXXFLAGS) $< -o $@
+-
+-%.dbg.o:%.cc
+-	@echo "Compiling $@"
+-	@$(CXX) -c $(HDRPATHS) $(DEBUG_CXXFLAGS) $< -o $@
+-
+-%.o:%.mm
+-	@echo "Compiling $@"
+-	@$(CXX) -c $(HDRPATHS) $(CXXFLAGS) $< -o $@
+-
+-%.dbg.o:%.mm
+-	@echo "Compiling $@"
+-	@$(CXX) -c $(HDRPATHS) $(DEBUG_CXXFLAGS) $< -o $@
+-
+-%.o:%.c
+-	@echo "Compiling $@"
+-	@$(CC) -c $(HDRPATHS) $(CFLAGS) $< -o $@
+-
+-%.dbg.o:%.c
+-	@echo "Compiling $@"
+-	@$(CC) -c $(HDRPATHS) $(DEBUG_CFLAGS) $< -o $@
++	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 clean
++.PHONY : clean
++
++# The main clean target
++clean/fast: clean
++
++.PHONY : clean/fast
++
++# Prepare targets for installation.
++preinstall: all
++	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 preinstall
++.PHONY : preinstall
++
++# Prepare targets for installation.
++preinstall/fast:
++	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 preinstall
++.PHONY : preinstall/fast
++
++# clear depends
++depend:
++	$(CMAKE_COMMAND) -S$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR) --check-build-system CMakeFiles/Makefile.cmake 1
++.PHONY : depend
++
++#=============================================================================
++# Target rules for targets named PROTO_LIB
++
++# Build rule for target.
++PROTO_LIB: cmake_check_build_system
++	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 PROTO_LIB
++.PHONY : PROTO_LIB
++
++# fast build rule for target.
++PROTO_LIB/fast:
++	$(MAKE) $(MAKESILENT) -f CMakeFiles/PROTO_LIB.dir/build.make CMakeFiles/PROTO_LIB.dir/build
++.PHONY : PROTO_LIB/fast
++
++#=============================================================================
++# Target rules for targets named SOURCES_LIB
++
++# Build rule for target.
++SOURCES_LIB: cmake_check_build_system
++	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 SOURCES_LIB
++.PHONY : SOURCES_LIB
++
++# fast build rule for target.
++SOURCES_LIB/fast:
++	$(MAKE) $(MAKESILENT) -f src/CMakeFiles/SOURCES_LIB.dir/build.make src/CMakeFiles/SOURCES_LIB.dir/build
++.PHONY : SOURCES_LIB/fast
++
++#=============================================================================
++# Target rules for targets named brpc-shared
++
++# Build rule for target.
++brpc-shared: cmake_check_build_system
++	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 brpc-shared
++.PHONY : brpc-shared
++
++# fast build rule for target.
++brpc-shared/fast:
++	$(MAKE) $(MAKESILENT) -f src/CMakeFiles/brpc-shared.dir/build.make src/CMakeFiles/brpc-shared.dir/build
++.PHONY : brpc-shared/fast
++
++#=============================================================================
++# Target rules for targets named brpc-static
++
++# Build rule for target.
++brpc-static: cmake_check_build_system
++	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 brpc-static
++.PHONY : brpc-static
++
++# fast build rule for target.
++brpc-static/fast:
++	$(MAKE) $(MAKESILENT) -f src/CMakeFiles/brpc-static.dir/build.make src/CMakeFiles/brpc-static.dir/build
++.PHONY : brpc-static/fast
++
++#=============================================================================
++# Target rules for targets named protoc-gen-mcpack
++
++# Build rule for target.
++protoc-gen-mcpack: cmake_check_build_system
++	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 protoc-gen-mcpack
++.PHONY : protoc-gen-mcpack
++
++# fast build rule for target.
++protoc-gen-mcpack/fast:
++	$(MAKE) $(MAKESILENT) -f src/CMakeFiles/protoc-gen-mcpack.dir/build.make src/CMakeFiles/protoc-gen-mcpack.dir/build
++.PHONY : protoc-gen-mcpack/fast
++
++#=============================================================================
++# Target rules for targets named BUTIL_LIB
++
++# Build rule for target.
++BUTIL_LIB: cmake_check_build_system
++	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 BUTIL_LIB
++.PHONY : BUTIL_LIB
++
++# fast build rule for target.
++BUTIL_LIB/fast:
++	$(MAKE) $(MAKESILENT) -f src/CMakeFiles/BUTIL_LIB.dir/build.make src/CMakeFiles/BUTIL_LIB.dir/build
++.PHONY : BUTIL_LIB/fast
++
++#=============================================================================
++# Target rules for targets named parallel_http
++
++# Build rule for target.
++parallel_http: cmake_check_build_system
++	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 parallel_http
++.PHONY : parallel_http
++
++# fast build rule for target.
++parallel_http/fast:
++	$(MAKE) $(MAKESILENT) -f tools/parallel_http/CMakeFiles/parallel_http.dir/build.make tools/parallel_http/CMakeFiles/parallel_http.dir/build
++.PHONY : parallel_http/fast
++
++#=============================================================================
++# Target rules for targets named rpc_press
++
++# Build rule for target.
++rpc_press: cmake_check_build_system
++	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 rpc_press
++.PHONY : rpc_press
++
++# fast build rule for target.
++rpc_press/fast:
++	$(MAKE) $(MAKESILENT) -f tools/rpc_press/CMakeFiles/rpc_press.dir/build.make tools/rpc_press/CMakeFiles/rpc_press.dir/build
++.PHONY : rpc_press/fast
++
++#=============================================================================
++# Target rules for targets named rpc_replay
++
++# Build rule for target.
++rpc_replay: cmake_check_build_system
++	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 rpc_replay
++.PHONY : rpc_replay
++
++# fast build rule for target.
++rpc_replay/fast:
++	$(MAKE) $(MAKESILENT) -f tools/rpc_replay/CMakeFiles/rpc_replay.dir/build.make tools/rpc_replay/CMakeFiles/rpc_replay.dir/build
++.PHONY : rpc_replay/fast
++
++#=============================================================================
++# Target rules for targets named rpc_view
++
++# Build rule for target.
++rpc_view: cmake_check_build_system
++	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 rpc_view
++.PHONY : rpc_view
++
++# fast build rule for target.
++rpc_view/fast:
++	$(MAKE) $(MAKESILENT) -f tools/rpc_view/CMakeFiles/rpc_view.dir/build.make tools/rpc_view/CMakeFiles/rpc_view.dir/build
++.PHONY : rpc_view/fast
++
++#=============================================================================
++# Target rules for targets named trackme_server
++
++# Build rule for target.
++trackme_server: cmake_check_build_system
++	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 trackme_server
++.PHONY : trackme_server
++
++# fast build rule for target.
++trackme_server/fast:
++	$(MAKE) $(MAKESILENT) -f tools/trackme_server/CMakeFiles/trackme_server.dir/build.make tools/trackme_server/CMakeFiles/trackme_server.dir/build
++.PHONY : trackme_server/fast
++
++brpc/builtin_service.pb.o: brpc/builtin_service.pb.cc.o
++
++.PHONY : brpc/builtin_service.pb.o
++
++# target to build an object file
++brpc/builtin_service.pb.cc.o:
++	$(MAKE) $(MAKESILENT) -f CMakeFiles/PROTO_LIB.dir/build.make CMakeFiles/PROTO_LIB.dir/brpc/builtin_service.pb.cc.o
++.PHONY : brpc/builtin_service.pb.cc.o
++
++brpc/builtin_service.pb.i: brpc/builtin_service.pb.cc.i
++
++.PHONY : brpc/builtin_service.pb.i
++
++# target to preprocess a source file
++brpc/builtin_service.pb.cc.i:
++	$(MAKE) $(MAKESILENT) -f CMakeFiles/PROTO_LIB.dir/build.make CMakeFiles/PROTO_LIB.dir/brpc/builtin_service.pb.cc.i
++.PHONY : brpc/builtin_service.pb.cc.i
++
++brpc/builtin_service.pb.s: brpc/builtin_service.pb.cc.s
++
++.PHONY : brpc/builtin_service.pb.s
++
++# target to generate assembly for a file
++brpc/builtin_service.pb.cc.s:
++	$(MAKE) $(MAKESILENT) -f CMakeFiles/PROTO_LIB.dir/build.make CMakeFiles/PROTO_LIB.dir/brpc/builtin_service.pb.cc.s
++.PHONY : brpc/builtin_service.pb.cc.s
++
++brpc/errno.pb.o: brpc/errno.pb.cc.o
++
++.PHONY : brpc/errno.pb.o
++
++# target to build an object file
++brpc/errno.pb.cc.o:
++	$(MAKE) $(MAKESILENT) -f CMakeFiles/PROTO_LIB.dir/build.make CMakeFiles/PROTO_LIB.dir/brpc/errno.pb.cc.o
++.PHONY : brpc/errno.pb.cc.o
++
++brpc/errno.pb.i: brpc/errno.pb.cc.i
++
++.PHONY : brpc/errno.pb.i
++
++# target to preprocess a source file
++brpc/errno.pb.cc.i:
++	$(MAKE) $(MAKESILENT) -f CMakeFiles/PROTO_LIB.dir/build.make CMakeFiles/PROTO_LIB.dir/brpc/errno.pb.cc.i
++.PHONY : brpc/errno.pb.cc.i
++
++brpc/errno.pb.s: brpc/errno.pb.cc.s
++
++.PHONY : brpc/errno.pb.s
++
++# target to generate assembly for a file
++brpc/errno.pb.cc.s:
++	$(MAKE) $(MAKESILENT) -f CMakeFiles/PROTO_LIB.dir/build.make CMakeFiles/PROTO_LIB.dir/brpc/errno.pb.cc.s
++.PHONY : brpc/errno.pb.cc.s
++
++brpc/get_favicon.pb.o: brpc/get_favicon.pb.cc.o
++
++.PHONY : brpc/get_favicon.pb.o
++
++# target to build an object file
++brpc/get_favicon.pb.cc.o:
++	$(MAKE) $(MAKESILENT) -f CMakeFiles/PROTO_LIB.dir/build.make CMakeFiles/PROTO_LIB.dir/brpc/get_favicon.pb.cc.o
++.PHONY : brpc/get_favicon.pb.cc.o
++
++brpc/get_favicon.pb.i: brpc/get_favicon.pb.cc.i
++
++.PHONY : brpc/get_favicon.pb.i
++
++# target to preprocess a source file
++brpc/get_favicon.pb.cc.i:
++	$(MAKE) $(MAKESILENT) -f CMakeFiles/PROTO_LIB.dir/build.make CMakeFiles/PROTO_LIB.dir/brpc/get_favicon.pb.cc.i
++.PHONY : brpc/get_favicon.pb.cc.i
++
++brpc/get_favicon.pb.s: brpc/get_favicon.pb.cc.s
++
++.PHONY : brpc/get_favicon.pb.s
++
++# target to generate assembly for a file
++brpc/get_favicon.pb.cc.s:
++	$(MAKE) $(MAKESILENT) -f CMakeFiles/PROTO_LIB.dir/build.make CMakeFiles/PROTO_LIB.dir/brpc/get_favicon.pb.cc.s
++.PHONY : brpc/get_favicon.pb.cc.s
++
++brpc/get_js.pb.o: brpc/get_js.pb.cc.o
++
++.PHONY : brpc/get_js.pb.o
++
++# target to build an object file
++brpc/get_js.pb.cc.o:
++	$(MAKE) $(MAKESILENT) -f CMakeFiles/PROTO_LIB.dir/build.make CMakeFiles/PROTO_LIB.dir/brpc/get_js.pb.cc.o
++.PHONY : brpc/get_js.pb.cc.o
++
++brpc/get_js.pb.i: brpc/get_js.pb.cc.i
++
++.PHONY : brpc/get_js.pb.i
++
++# target to preprocess a source file
++brpc/get_js.pb.cc.i:
++	$(MAKE) $(MAKESILENT) -f CMakeFiles/PROTO_LIB.dir/build.make CMakeFiles/PROTO_LIB.dir/brpc/get_js.pb.cc.i
++.PHONY : brpc/get_js.pb.cc.i
++
++brpc/get_js.pb.s: brpc/get_js.pb.cc.s
++
++.PHONY : brpc/get_js.pb.s
++
++# target to generate assembly for a file
++brpc/get_js.pb.cc.s:
++	$(MAKE) $(MAKESILENT) -f CMakeFiles/PROTO_LIB.dir/build.make CMakeFiles/PROTO_LIB.dir/brpc/get_js.pb.cc.s
++.PHONY : brpc/get_js.pb.cc.s
++
++brpc/nshead_meta.pb.o: brpc/nshead_meta.pb.cc.o
++
++.PHONY : brpc/nshead_meta.pb.o
++
++# target to build an object file
++brpc/nshead_meta.pb.cc.o:
++	$(MAKE) $(MAKESILENT) -f CMakeFiles/PROTO_LIB.dir/build.make CMakeFiles/PROTO_LIB.dir/brpc/nshead_meta.pb.cc.o
++.PHONY : brpc/nshead_meta.pb.cc.o
++
++brpc/nshead_meta.pb.i: brpc/nshead_meta.pb.cc.i
++
++.PHONY : brpc/nshead_meta.pb.i
++
++# target to preprocess a source file
++brpc/nshead_meta.pb.cc.i:
++	$(MAKE) $(MAKESILENT) -f CMakeFiles/PROTO_LIB.dir/build.make CMakeFiles/PROTO_LIB.dir/brpc/nshead_meta.pb.cc.i
++.PHONY : brpc/nshead_meta.pb.cc.i
++
++brpc/nshead_meta.pb.s: brpc/nshead_meta.pb.cc.s
++
++.PHONY : brpc/nshead_meta.pb.s
++
++# target to generate assembly for a file
++brpc/nshead_meta.pb.cc.s:
++	$(MAKE) $(MAKESILENT) -f CMakeFiles/PROTO_LIB.dir/build.make CMakeFiles/PROTO_LIB.dir/brpc/nshead_meta.pb.cc.s
++.PHONY : brpc/nshead_meta.pb.cc.s
++
++brpc/options.pb.o: brpc/options.pb.cc.o
++
++.PHONY : brpc/options.pb.o
++
++# target to build an object file
++brpc/options.pb.cc.o:
++	$(MAKE) $(MAKESILENT) -f CMakeFiles/PROTO_LIB.dir/build.make CMakeFiles/PROTO_LIB.dir/brpc/options.pb.cc.o
++.PHONY : brpc/options.pb.cc.o
++
++brpc/options.pb.i: brpc/options.pb.cc.i
++
++.PHONY : brpc/options.pb.i
++
++# target to preprocess a source file
++brpc/options.pb.cc.i:
++	$(MAKE) $(MAKESILENT) -f CMakeFiles/PROTO_LIB.dir/build.make CMakeFiles/PROTO_LIB.dir/brpc/options.pb.cc.i
++.PHONY : brpc/options.pb.cc.i
++
++brpc/options.pb.s: brpc/options.pb.cc.s
++
++.PHONY : brpc/options.pb.s
++
++# target to generate assembly for a file
++brpc/options.pb.cc.s:
++	$(MAKE) $(MAKESILENT) -f CMakeFiles/PROTO_LIB.dir/build.make CMakeFiles/PROTO_LIB.dir/brpc/options.pb.cc.s
++.PHONY : brpc/options.pb.cc.s
++
++brpc/policy/baidu_rpc_meta.pb.o: brpc/policy/baidu_rpc_meta.pb.cc.o
++
++.PHONY : brpc/policy/baidu_rpc_meta.pb.o
++
++# target to build an object file
++brpc/policy/baidu_rpc_meta.pb.cc.o:
++	$(MAKE) $(MAKESILENT) -f CMakeFiles/PROTO_LIB.dir/build.make CMakeFiles/PROTO_LIB.dir/brpc/policy/baidu_rpc_meta.pb.cc.o
++.PHONY : brpc/policy/baidu_rpc_meta.pb.cc.o
++
++brpc/policy/baidu_rpc_meta.pb.i: brpc/policy/baidu_rpc_meta.pb.cc.i
++
++.PHONY : brpc/policy/baidu_rpc_meta.pb.i
++
++# target to preprocess a source file
++brpc/policy/baidu_rpc_meta.pb.cc.i:
++	$(MAKE) $(MAKESILENT) -f CMakeFiles/PROTO_LIB.dir/build.make CMakeFiles/PROTO_LIB.dir/brpc/policy/baidu_rpc_meta.pb.cc.i
++.PHONY : brpc/policy/baidu_rpc_meta.pb.cc.i
++
++brpc/policy/baidu_rpc_meta.pb.s: brpc/policy/baidu_rpc_meta.pb.cc.s
++
++.PHONY : brpc/policy/baidu_rpc_meta.pb.s
++
++# target to generate assembly for a file
++brpc/policy/baidu_rpc_meta.pb.cc.s:
++	$(MAKE) $(MAKESILENT) -f CMakeFiles/PROTO_LIB.dir/build.make CMakeFiles/PROTO_LIB.dir/brpc/policy/baidu_rpc_meta.pb.cc.s
++.PHONY : brpc/policy/baidu_rpc_meta.pb.cc.s
++
++brpc/policy/hulu_pbrpc_meta.pb.o: brpc/policy/hulu_pbrpc_meta.pb.cc.o
++
++.PHONY : brpc/policy/hulu_pbrpc_meta.pb.o
++
++# target to build an object file
++brpc/policy/hulu_pbrpc_meta.pb.cc.o:
++	$(MAKE) $(MAKESILENT) -f CMakeFiles/PROTO_LIB.dir/build.make CMakeFiles/PROTO_LIB.dir/brpc/policy/hulu_pbrpc_meta.pb.cc.o
++.PHONY : brpc/policy/hulu_pbrpc_meta.pb.cc.o
++
++brpc/policy/hulu_pbrpc_meta.pb.i: brpc/policy/hulu_pbrpc_meta.pb.cc.i
++
++.PHONY : brpc/policy/hulu_pbrpc_meta.pb.i
++
++# target to preprocess a source file
++brpc/policy/hulu_pbrpc_meta.pb.cc.i:
++	$(MAKE) $(MAKESILENT) -f CMakeFiles/PROTO_LIB.dir/build.make CMakeFiles/PROTO_LIB.dir/brpc/policy/hulu_pbrpc_meta.pb.cc.i
++.PHONY : brpc/policy/hulu_pbrpc_meta.pb.cc.i
++
++brpc/policy/hulu_pbrpc_meta.pb.s: brpc/policy/hulu_pbrpc_meta.pb.cc.s
++
++.PHONY : brpc/policy/hulu_pbrpc_meta.pb.s
++
++# target to generate assembly for a file
++brpc/policy/hulu_pbrpc_meta.pb.cc.s:
++	$(MAKE) $(MAKESILENT) -f CMakeFiles/PROTO_LIB.dir/build.make CMakeFiles/PROTO_LIB.dir/brpc/policy/hulu_pbrpc_meta.pb.cc.s
++.PHONY : brpc/policy/hulu_pbrpc_meta.pb.cc.s
++
++brpc/policy/mongo.pb.o: brpc/policy/mongo.pb.cc.o
++
++.PHONY : brpc/policy/mongo.pb.o
++
++# target to build an object file
++brpc/policy/mongo.pb.cc.o:
++	$(MAKE) $(MAKESILENT) -f CMakeFiles/PROTO_LIB.dir/build.make CMakeFiles/PROTO_LIB.dir/brpc/policy/mongo.pb.cc.o
++.PHONY : brpc/policy/mongo.pb.cc.o
++
++brpc/policy/mongo.pb.i: brpc/policy/mongo.pb.cc.i
++
++.PHONY : brpc/policy/mongo.pb.i
++
++# target to preprocess a source file
++brpc/policy/mongo.pb.cc.i:
++	$(MAKE) $(MAKESILENT) -f CMakeFiles/PROTO_LIB.dir/build.make CMakeFiles/PROTO_LIB.dir/brpc/policy/mongo.pb.cc.i
++.PHONY : brpc/policy/mongo.pb.cc.i
++
++brpc/policy/mongo.pb.s: brpc/policy/mongo.pb.cc.s
++
++.PHONY : brpc/policy/mongo.pb.s
++
++# target to generate assembly for a file
++brpc/policy/mongo.pb.cc.s:
++	$(MAKE) $(MAKESILENT) -f CMakeFiles/PROTO_LIB.dir/build.make CMakeFiles/PROTO_LIB.dir/brpc/policy/mongo.pb.cc.s
++.PHONY : brpc/policy/mongo.pb.cc.s
++
++brpc/policy/public_pbrpc_meta.pb.o: brpc/policy/public_pbrpc_meta.pb.cc.o
++
++.PHONY : brpc/policy/public_pbrpc_meta.pb.o
++
++# target to build an object file
++brpc/policy/public_pbrpc_meta.pb.cc.o:
++	$(MAKE) $(MAKESILENT) -f CMakeFiles/PROTO_LIB.dir/build.make CMakeFiles/PROTO_LIB.dir/brpc/policy/public_pbrpc_meta.pb.cc.o
++.PHONY : brpc/policy/public_pbrpc_meta.pb.cc.o
++
++brpc/policy/public_pbrpc_meta.pb.i: brpc/policy/public_pbrpc_meta.pb.cc.i
++
++.PHONY : brpc/policy/public_pbrpc_meta.pb.i
++
++# target to preprocess a source file
++brpc/policy/public_pbrpc_meta.pb.cc.i:
++	$(MAKE) $(MAKESILENT) -f CMakeFiles/PROTO_LIB.dir/build.make CMakeFiles/PROTO_LIB.dir/brpc/policy/public_pbrpc_meta.pb.cc.i
++.PHONY : brpc/policy/public_pbrpc_meta.pb.cc.i
++
++brpc/policy/public_pbrpc_meta.pb.s: brpc/policy/public_pbrpc_meta.pb.cc.s
++
++.PHONY : brpc/policy/public_pbrpc_meta.pb.s
++
++# target to generate assembly for a file
++brpc/policy/public_pbrpc_meta.pb.cc.s:
++	$(MAKE) $(MAKESILENT) -f CMakeFiles/PROTO_LIB.dir/build.make CMakeFiles/PROTO_LIB.dir/brpc/policy/public_pbrpc_meta.pb.cc.s
++.PHONY : brpc/policy/public_pbrpc_meta.pb.cc.s
++
++brpc/policy/sofa_pbrpc_meta.pb.o: brpc/policy/sofa_pbrpc_meta.pb.cc.o
++
++.PHONY : brpc/policy/sofa_pbrpc_meta.pb.o
++
++# target to build an object file
++brpc/policy/sofa_pbrpc_meta.pb.cc.o:
++	$(MAKE) $(MAKESILENT) -f CMakeFiles/PROTO_LIB.dir/build.make CMakeFiles/PROTO_LIB.dir/brpc/policy/sofa_pbrpc_meta.pb.cc.o
++.PHONY : brpc/policy/sofa_pbrpc_meta.pb.cc.o
++
++brpc/policy/sofa_pbrpc_meta.pb.i: brpc/policy/sofa_pbrpc_meta.pb.cc.i
++
++.PHONY : brpc/policy/sofa_pbrpc_meta.pb.i
++
++# target to preprocess a source file
++brpc/policy/sofa_pbrpc_meta.pb.cc.i:
++	$(MAKE) $(MAKESILENT) -f CMakeFiles/PROTO_LIB.dir/build.make CMakeFiles/PROTO_LIB.dir/brpc/policy/sofa_pbrpc_meta.pb.cc.i
++.PHONY : brpc/policy/sofa_pbrpc_meta.pb.cc.i
++
++brpc/policy/sofa_pbrpc_meta.pb.s: brpc/policy/sofa_pbrpc_meta.pb.cc.s
++
++.PHONY : brpc/policy/sofa_pbrpc_meta.pb.s
++
++# target to generate assembly for a file
++brpc/policy/sofa_pbrpc_meta.pb.cc.s:
++	$(MAKE) $(MAKESILENT) -f CMakeFiles/PROTO_LIB.dir/build.make CMakeFiles/PROTO_LIB.dir/brpc/policy/sofa_pbrpc_meta.pb.cc.s
++.PHONY : brpc/policy/sofa_pbrpc_meta.pb.cc.s
++
++brpc/proto_base.pb.o: brpc/proto_base.pb.cc.o
++
++.PHONY : brpc/proto_base.pb.o
++
++# target to build an object file
++brpc/proto_base.pb.cc.o:
++	$(MAKE) $(MAKESILENT) -f CMakeFiles/PROTO_LIB.dir/build.make CMakeFiles/PROTO_LIB.dir/brpc/proto_base.pb.cc.o
++.PHONY : brpc/proto_base.pb.cc.o
++
++brpc/proto_base.pb.i: brpc/proto_base.pb.cc.i
++
++.PHONY : brpc/proto_base.pb.i
++
++# target to preprocess a source file
++brpc/proto_base.pb.cc.i:
++	$(MAKE) $(MAKESILENT) -f CMakeFiles/PROTO_LIB.dir/build.make CMakeFiles/PROTO_LIB.dir/brpc/proto_base.pb.cc.i
++.PHONY : brpc/proto_base.pb.cc.i
++
++brpc/proto_base.pb.s: brpc/proto_base.pb.cc.s
++
++.PHONY : brpc/proto_base.pb.s
++
++# target to generate assembly for a file
++brpc/proto_base.pb.cc.s:
++	$(MAKE) $(MAKESILENT) -f CMakeFiles/PROTO_LIB.dir/build.make CMakeFiles/PROTO_LIB.dir/brpc/proto_base.pb.cc.s
++.PHONY : brpc/proto_base.pb.cc.s
++
++brpc/rpc_dump.pb.o: brpc/rpc_dump.pb.cc.o
++
++.PHONY : brpc/rpc_dump.pb.o
++
++# target to build an object file
++brpc/rpc_dump.pb.cc.o:
++	$(MAKE) $(MAKESILENT) -f CMakeFiles/PROTO_LIB.dir/build.make CMakeFiles/PROTO_LIB.dir/brpc/rpc_dump.pb.cc.o
++.PHONY : brpc/rpc_dump.pb.cc.o
++
++brpc/rpc_dump.pb.i: brpc/rpc_dump.pb.cc.i
++
++.PHONY : brpc/rpc_dump.pb.i
++
++# target to preprocess a source file
++brpc/rpc_dump.pb.cc.i:
++	$(MAKE) $(MAKESILENT) -f CMakeFiles/PROTO_LIB.dir/build.make CMakeFiles/PROTO_LIB.dir/brpc/rpc_dump.pb.cc.i
++.PHONY : brpc/rpc_dump.pb.cc.i
++
++brpc/rpc_dump.pb.s: brpc/rpc_dump.pb.cc.s
++
++.PHONY : brpc/rpc_dump.pb.s
++
++# target to generate assembly for a file
++brpc/rpc_dump.pb.cc.s:
++	$(MAKE) $(MAKESILENT) -f CMakeFiles/PROTO_LIB.dir/build.make CMakeFiles/PROTO_LIB.dir/brpc/rpc_dump.pb.cc.s
++.PHONY : brpc/rpc_dump.pb.cc.s
++
++brpc/rtmp.pb.o: brpc/rtmp.pb.cc.o
++
++.PHONY : brpc/rtmp.pb.o
++
++# target to build an object file
++brpc/rtmp.pb.cc.o:
++	$(MAKE) $(MAKESILENT) -f CMakeFiles/PROTO_LIB.dir/build.make CMakeFiles/PROTO_LIB.dir/brpc/rtmp.pb.cc.o
++.PHONY : brpc/rtmp.pb.cc.o
++
++brpc/rtmp.pb.i: brpc/rtmp.pb.cc.i
++
++.PHONY : brpc/rtmp.pb.i
++
++# target to preprocess a source file
++brpc/rtmp.pb.cc.i:
++	$(MAKE) $(MAKESILENT) -f CMakeFiles/PROTO_LIB.dir/build.make CMakeFiles/PROTO_LIB.dir/brpc/rtmp.pb.cc.i
++.PHONY : brpc/rtmp.pb.cc.i
++
++brpc/rtmp.pb.s: brpc/rtmp.pb.cc.s
++
++.PHONY : brpc/rtmp.pb.s
++
++# target to generate assembly for a file
++brpc/rtmp.pb.cc.s:
++	$(MAKE) $(MAKESILENT) -f CMakeFiles/PROTO_LIB.dir/build.make CMakeFiles/PROTO_LIB.dir/brpc/rtmp.pb.cc.s
++.PHONY : brpc/rtmp.pb.cc.s
++
++brpc/span.pb.o: brpc/span.pb.cc.o
++
++.PHONY : brpc/span.pb.o
++
++# target to build an object file
++brpc/span.pb.cc.o:
++	$(MAKE) $(MAKESILENT) -f CMakeFiles/PROTO_LIB.dir/build.make CMakeFiles/PROTO_LIB.dir/brpc/span.pb.cc.o
++.PHONY : brpc/span.pb.cc.o
++
++brpc/span.pb.i: brpc/span.pb.cc.i
++
++.PHONY : brpc/span.pb.i
++
++# target to preprocess a source file
++brpc/span.pb.cc.i:
++	$(MAKE) $(MAKESILENT) -f CMakeFiles/PROTO_LIB.dir/build.make CMakeFiles/PROTO_LIB.dir/brpc/span.pb.cc.i
++.PHONY : brpc/span.pb.cc.i
++
++brpc/span.pb.s: brpc/span.pb.cc.s
++
++.PHONY : brpc/span.pb.s
++
++# target to generate assembly for a file
++brpc/span.pb.cc.s:
++	$(MAKE) $(MAKESILENT) -f CMakeFiles/PROTO_LIB.dir/build.make CMakeFiles/PROTO_LIB.dir/brpc/span.pb.cc.s
++.PHONY : brpc/span.pb.cc.s
++
++brpc/streaming_rpc_meta.pb.o: brpc/streaming_rpc_meta.pb.cc.o
++
++.PHONY : brpc/streaming_rpc_meta.pb.o
++
++# target to build an object file
++brpc/streaming_rpc_meta.pb.cc.o:
++	$(MAKE) $(MAKESILENT) -f CMakeFiles/PROTO_LIB.dir/build.make CMakeFiles/PROTO_LIB.dir/brpc/streaming_rpc_meta.pb.cc.o
++.PHONY : brpc/streaming_rpc_meta.pb.cc.o
++
++brpc/streaming_rpc_meta.pb.i: brpc/streaming_rpc_meta.pb.cc.i
++
++.PHONY : brpc/streaming_rpc_meta.pb.i
++
++# target to preprocess a source file
++brpc/streaming_rpc_meta.pb.cc.i:
++	$(MAKE) $(MAKESILENT) -f CMakeFiles/PROTO_LIB.dir/build.make CMakeFiles/PROTO_LIB.dir/brpc/streaming_rpc_meta.pb.cc.i
++.PHONY : brpc/streaming_rpc_meta.pb.cc.i
++
++brpc/streaming_rpc_meta.pb.s: brpc/streaming_rpc_meta.pb.cc.s
++
++.PHONY : brpc/streaming_rpc_meta.pb.s
++
++# target to generate assembly for a file
++brpc/streaming_rpc_meta.pb.cc.s:
++	$(MAKE) $(MAKESILENT) -f CMakeFiles/PROTO_LIB.dir/build.make CMakeFiles/PROTO_LIB.dir/brpc/streaming_rpc_meta.pb.cc.s
++.PHONY : brpc/streaming_rpc_meta.pb.cc.s
++
++brpc/trackme.pb.o: brpc/trackme.pb.cc.o
++
++.PHONY : brpc/trackme.pb.o
++
++# target to build an object file
++brpc/trackme.pb.cc.o:
++	$(MAKE) $(MAKESILENT) -f CMakeFiles/PROTO_LIB.dir/build.make CMakeFiles/PROTO_LIB.dir/brpc/trackme.pb.cc.o
++.PHONY : brpc/trackme.pb.cc.o
++
++brpc/trackme.pb.i: brpc/trackme.pb.cc.i
++
++.PHONY : brpc/trackme.pb.i
++
++# target to preprocess a source file
++brpc/trackme.pb.cc.i:
++	$(MAKE) $(MAKESILENT) -f CMakeFiles/PROTO_LIB.dir/build.make CMakeFiles/PROTO_LIB.dir/brpc/trackme.pb.cc.i
++.PHONY : brpc/trackme.pb.cc.i
++
++brpc/trackme.pb.s: brpc/trackme.pb.cc.s
++
++.PHONY : brpc/trackme.pb.s
++
++# target to generate assembly for a file
++brpc/trackme.pb.cc.s:
++	$(MAKE) $(MAKESILENT) -f CMakeFiles/PROTO_LIB.dir/build.make CMakeFiles/PROTO_LIB.dir/brpc/trackme.pb.cc.s
++.PHONY : brpc/trackme.pb.cc.s
++
++idl_options.pb.o: idl_options.pb.cc.o
++
++.PHONY : idl_options.pb.o
++
++# target to build an object file
++idl_options.pb.cc.o:
++	$(MAKE) $(MAKESILENT) -f CMakeFiles/PROTO_LIB.dir/build.make CMakeFiles/PROTO_LIB.dir/idl_options.pb.cc.o
++.PHONY : idl_options.pb.cc.o
++
++idl_options.pb.i: idl_options.pb.cc.i
++
++.PHONY : idl_options.pb.i
++
++# target to preprocess a source file
++idl_options.pb.cc.i:
++	$(MAKE) $(MAKESILENT) -f CMakeFiles/PROTO_LIB.dir/build.make CMakeFiles/PROTO_LIB.dir/idl_options.pb.cc.i
++.PHONY : idl_options.pb.cc.i
++
++idl_options.pb.s: idl_options.pb.cc.s
++
++.PHONY : idl_options.pb.s
++
++# target to generate assembly for a file
++idl_options.pb.cc.s:
++	$(MAKE) $(MAKESILENT) -f CMakeFiles/PROTO_LIB.dir/build.make CMakeFiles/PROTO_LIB.dir/idl_options.pb.cc.s
++.PHONY : idl_options.pb.cc.s
++
++# Help Target
++help:
++	@echo "The following are some of the valid targets for this Makefile:"
++	@echo "... all (the default if no target is provided)"
++	@echo "... clean"
++	@echo "... depend"
++	@echo "... edit_cache"
++	@echo "... install"
++	@echo "... install/local"
++	@echo "... install/strip"
++	@echo "... list_install_components"
++	@echo "... package"
++	@echo "... package_source"
++	@echo "... rebuild_cache"
++	@echo "... BUTIL_LIB"
++	@echo "... PROTO_LIB"
++	@echo "... SOURCES_LIB"
++	@echo "... brpc-shared"
++	@echo "... brpc-static"
++	@echo "... parallel_http"
++	@echo "... protoc-gen-mcpack"
++	@echo "... rpc_press"
++	@echo "... rpc_replay"
++	@echo "... rpc_view"
++	@echo "... trackme_server"
++	@echo "... brpc/builtin_service.pb.o"
++	@echo "... brpc/builtin_service.pb.i"
++	@echo "... brpc/builtin_service.pb.s"
++	@echo "... brpc/errno.pb.o"
++	@echo "... brpc/errno.pb.i"
++	@echo "... brpc/errno.pb.s"
++	@echo "... brpc/get_favicon.pb.o"
++	@echo "... brpc/get_favicon.pb.i"
++	@echo "... brpc/get_favicon.pb.s"
++	@echo "... brpc/get_js.pb.o"
++	@echo "... brpc/get_js.pb.i"
++	@echo "... brpc/get_js.pb.s"
++	@echo "... brpc/nshead_meta.pb.o"
++	@echo "... brpc/nshead_meta.pb.i"
++	@echo "... brpc/nshead_meta.pb.s"
++	@echo "... brpc/options.pb.o"
++	@echo "... brpc/options.pb.i"
++	@echo "... brpc/options.pb.s"
++	@echo "... brpc/policy/baidu_rpc_meta.pb.o"
++	@echo "... brpc/policy/baidu_rpc_meta.pb.i"
++	@echo "... brpc/policy/baidu_rpc_meta.pb.s"
++	@echo "... brpc/policy/hulu_pbrpc_meta.pb.o"
++	@echo "... brpc/policy/hulu_pbrpc_meta.pb.i"
++	@echo "... brpc/policy/hulu_pbrpc_meta.pb.s"
++	@echo "... brpc/policy/mongo.pb.o"
++	@echo "... brpc/policy/mongo.pb.i"
++	@echo "... brpc/policy/mongo.pb.s"
++	@echo "... brpc/policy/public_pbrpc_meta.pb.o"
++	@echo "... brpc/policy/public_pbrpc_meta.pb.i"
++	@echo "... brpc/policy/public_pbrpc_meta.pb.s"
++	@echo "... brpc/policy/sofa_pbrpc_meta.pb.o"
++	@echo "... brpc/policy/sofa_pbrpc_meta.pb.i"
++	@echo "... brpc/policy/sofa_pbrpc_meta.pb.s"
++	@echo "... brpc/proto_base.pb.o"
++	@echo "... brpc/proto_base.pb.i"
++	@echo "... brpc/proto_base.pb.s"
++	@echo "... brpc/rpc_dump.pb.o"
++	@echo "... brpc/rpc_dump.pb.i"
++	@echo "... brpc/rpc_dump.pb.s"
++	@echo "... brpc/rtmp.pb.o"
++	@echo "... brpc/rtmp.pb.i"
++	@echo "... brpc/rtmp.pb.s"
++	@echo "... brpc/span.pb.o"
++	@echo "... brpc/span.pb.i"
++	@echo "... brpc/span.pb.s"
++	@echo "... brpc/streaming_rpc_meta.pb.o"
++	@echo "... brpc/streaming_rpc_meta.pb.i"
++	@echo "... brpc/streaming_rpc_meta.pb.s"
++	@echo "... brpc/trackme.pb.o"
++	@echo "... brpc/trackme.pb.i"
++	@echo "... brpc/trackme.pb.s"
++	@echo "... idl_options.pb.o"
++	@echo "... idl_options.pb.i"
++	@echo "... idl_options.pb.s"
++.PHONY : help
++
++
++
++#=============================================================================
++# Special targets to cleanup operation of make.
++
++# Special rule to run CMake to check the build system integrity.
++# No rule that depends on this can have commands that come from listfiles
++# because they might be regenerated.
++cmake_check_build_system:
++	$(CMAKE_COMMAND) -S$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR) --check-build-system CMakeFiles/Makefile.cmake 0
++.PHONY : cmake_check_build_system
++
+diff --git a/src/brpc/acceptor.cpp b/src/brpc/acceptor.cpp
+index 0e12751..d094ef2 100644
+--- a/src/brpc/acceptor.cpp
++++ b/src/brpc/acceptor.cpp
+@@ -22,7 +22,7 @@
+ #include "butil/fd_utility.h"               // make_close_on_exec
+ #include "butil/time.h"                     // gettimeofday_us
+ #include "brpc/acceptor.h"
+-
++#include "butil/logging.h"
+ 
+ namespace brpc {
+ 
 diff --git a/src/brpc/channel_base.h b/src/brpc/channel_base.h
 index ed6ff24..132dd8f 100644
 --- a/src/brpc/channel_base.h
@@ -2041,6 +3313,782 @@ index a5780bf..2ebf306 100644
      }
      
      ~WindowBase() {
+diff --git a/tools/parallel_http/Makefile b/tools/parallel_http/Makefile
+index 0336c24..b857edd 100644
+--- a/tools/parallel_http/Makefile
++++ b/tools/parallel_http/Makefile
+@@ -1,50 +1,274 @@
+-# Licensed to the Apache Software Foundation (ASF) under one
+-# or more contributor license agreements.  See the NOTICE file
+-# distributed with this work for additional information
+-# regarding copyright ownership.  The ASF licenses this file
+-# to you under the Apache License, Version 2.0 (the
+-# "License"); you may not use this file except in compliance
+-# with the License.  You may obtain a copy of the License at
+-#
+-#   http://www.apache.org/licenses/LICENSE-2.0
+-#
+-# Unless required by applicable law or agreed to in writing,
+-# software distributed under the License is distributed on an
+-# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+-# KIND, either express or implied.  See the License for the
+-# specific language governing permissions and limitations
+-# under the License.
+-
+-BRPC_PATH = ../../
+-include $(BRPC_PATH)/config.mk
+-CXXFLAGS = $(CPPFLAGS) -std=c++0x -DNDEBUG -O2 -D__const__= -pipe -W -Wall -fPIC -fno-omit-frame-pointer -Wno-unused-parameter
+-HDRPATHS = -I$(BRPC_PATH)/output/include $(addprefix -I, $(HDRS))
+-LIBPATHS = -L$(BRPC_PATH)/output/lib $(addprefix -L, $(LIBS))
+-STATIC_LINKINGS += $(BRPC_PATH)/output/lib/libbrpc.a
+-
+-SOURCES = $(wildcard *.cpp)
+-OBJS = $(addsuffix .o, $(basename $(SOURCES))) 
+-
+-.PHONY:all
+-all: parallel_http
+-
+-.PHONY:clean
++# CMAKE generated file: DO NOT EDIT!
++# Generated by "Unix Makefiles" Generator, CMake Version 3.17
++
++# Default target executed when no arguments are given to make.
++default_target: all
++
++.PHONY : default_target
++
++# Allow only one "make -f Makefile2" at a time, but pass parallelism.
++.NOTPARALLEL:
++
++
++#=============================================================================
++# Special targets provided by cmake.
++
++# Disable implicit rules so canonical targets will work.
++.SUFFIXES:
++
++
++# Disable VCS-based implicit rules.
++% : %,v
++
++
++# Disable VCS-based implicit rules.
++% : RCS/%
++
++
++# Disable VCS-based implicit rules.
++% : RCS/%,v
++
++
++# Disable VCS-based implicit rules.
++% : SCCS/s.%
++
++
++# Disable VCS-based implicit rules.
++% : s.%
++
++
++.SUFFIXES: .hpux_make_needs_suffix_list
++
++
++# Command-line flag to silence nested $(MAKE).
++$(VERBOSE)MAKESILENT = -s
++
++# Suppress display of executed commands.
++$(VERBOSE).SILENT:
++
++
++# A target that is always out of date.
++cmake_force:
++
++.PHONY : cmake_force
++
++#=============================================================================
++# Set environment variables for the build.
++
++# The shell in which to execute make rules.
++SHELL = /bin/sh
++
++# The CMake executable.
++CMAKE_COMMAND = /usr/bin/cmake3
++
++# The command to remove a file.
++RM = /usr/bin/cmake3 -E rm -f
++
++# Escaping for special characters.
++EQUALS = =
++
++# The top-level source directory on which CMake was run.
++CMAKE_SOURCE_DIR = /home/fanyu/Downloads/incubator-brpc
++
++# The top-level build directory on which CMake was run.
++CMAKE_BINARY_DIR = /home/fanyu/Downloads/incubator-brpc
++
++#=============================================================================
++# Targets provided globally by CMake.
++
++# Special rule for the target install/strip
++install/strip: preinstall
++	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Installing the project stripped..."
++	/usr/bin/cmake3 -DCMAKE_INSTALL_DO_STRIP=1 -P cmake_install.cmake
++.PHONY : install/strip
++
++# Special rule for the target install/strip
++install/strip/fast: preinstall/fast
++	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Installing the project stripped..."
++	/usr/bin/cmake3 -DCMAKE_INSTALL_DO_STRIP=1 -P cmake_install.cmake
++.PHONY : install/strip/fast
++
++# Special rule for the target install/local
++install/local: preinstall
++	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Installing only the local directory..."
++	/usr/bin/cmake3 -DCMAKE_INSTALL_LOCAL_ONLY=1 -P cmake_install.cmake
++.PHONY : install/local
++
++# Special rule for the target install/local
++install/local/fast: preinstall/fast
++	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Installing only the local directory..."
++	/usr/bin/cmake3 -DCMAKE_INSTALL_LOCAL_ONLY=1 -P cmake_install.cmake
++.PHONY : install/local/fast
++
++# Special rule for the target rebuild_cache
++rebuild_cache:
++	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Running CMake to regenerate build system..."
++	/usr/bin/cmake3 --regenerate-during-build -S$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR)
++.PHONY : rebuild_cache
++
++# Special rule for the target rebuild_cache
++rebuild_cache/fast: rebuild_cache
++
++.PHONY : rebuild_cache/fast
++
++# Special rule for the target edit_cache
++edit_cache:
++	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Running CMake cache editor..."
++	/usr/bin/ccmake3 -S$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR)
++.PHONY : edit_cache
++
++# Special rule for the target edit_cache
++edit_cache/fast: edit_cache
++
++.PHONY : edit_cache/fast
++
++# Special rule for the target package_source
++package_source:
++	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Run CPack packaging tool for source..."
++	cd /home/fanyu/Downloads/incubator-brpc && /usr/bin/cpack3 --config ./CPackSourceConfig.cmake /home/fanyu/Downloads/incubator-brpc/CPackSourceConfig.cmake
++.PHONY : package_source
++
++# Special rule for the target package_source
++package_source/fast: package_source
++
++.PHONY : package_source/fast
++
++# Special rule for the target package
++package: preinstall
++	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Run CPack packaging tool..."
++	cd /home/fanyu/Downloads/incubator-brpc && /usr/bin/cpack3 --config ./CPackConfig.cmake
++.PHONY : package
++
++# Special rule for the target package
++package/fast: package
++
++.PHONY : package/fast
++
++# Special rule for the target install
++install: preinstall
++	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Install the project..."
++	/usr/bin/cmake3 -P cmake_install.cmake
++.PHONY : install
++
++# Special rule for the target install
++install/fast: preinstall/fast
++	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Install the project..."
++	/usr/bin/cmake3 -P cmake_install.cmake
++.PHONY : install/fast
++
++# Special rule for the target list_install_components
++list_install_components:
++	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Available install components are: \"Unspecified\""
++.PHONY : list_install_components
++
++# Special rule for the target list_install_components
++list_install_components/fast: list_install_components
++
++.PHONY : list_install_components/fast
++
++# The main all target
++all: cmake_check_build_system
++	cd /home/fanyu/Downloads/incubator-brpc && $(CMAKE_COMMAND) -E cmake_progress_start /home/fanyu/Downloads/incubator-brpc/CMakeFiles /home/fanyu/Downloads/incubator-brpc/tools/parallel_http/CMakeFiles/progress.marks
++	cd /home/fanyu/Downloads/incubator-brpc && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tools/parallel_http/all
++	$(CMAKE_COMMAND) -E cmake_progress_start /home/fanyu/Downloads/incubator-brpc/CMakeFiles 0
++.PHONY : all
++
++# The main clean target
+ clean:
+-	@echo "Cleaning"
+-	@rm -rf parallel_http $(OBJS)
+-
+-parallel_http:$(OBJS)
+-	@echo "Linking $@"
+-ifeq ($(SYSTEM),Linux)
+-	@$(CXX) $(LIBPATHS) -Xlinker "-(" $^ -Wl,-Bstatic $(STATIC_LINKINGS) -Wl,-Bdynamic -Xlinker "-)" $(DYNAMIC_LINKINGS) -o $@
+-else ifeq ($(SYSTEM),Darwin)
+-	@$(CXX) $(LIBPATHS) $^ $(STATIC_LINKINGS) $(DYNAMIC_LINKINGS) -o $@
+-endif
+-
+-%.o:%.cpp
+-	@echo "Compiling $@"
+-	@$(CXX) -c $(HDRPATHS) $(CXXFLAGS) $< -o $@
+-
+-%.o:%.cc
+-	@echo "Compiling $@"
+-	@$(CXX) -c $(HDRPATHS) $(CXXFLAGS) $< -o $@
++	cd /home/fanyu/Downloads/incubator-brpc && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tools/parallel_http/clean
++.PHONY : clean
++
++# The main clean target
++clean/fast: clean
++
++.PHONY : clean/fast
++
++# Prepare targets for installation.
++preinstall: all
++	cd /home/fanyu/Downloads/incubator-brpc && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tools/parallel_http/preinstall
++.PHONY : preinstall
++
++# Prepare targets for installation.
++preinstall/fast:
++	cd /home/fanyu/Downloads/incubator-brpc && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tools/parallel_http/preinstall
++.PHONY : preinstall/fast
++
++# clear depends
++depend:
++	cd /home/fanyu/Downloads/incubator-brpc && $(CMAKE_COMMAND) -S$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR) --check-build-system CMakeFiles/Makefile.cmake 1
++.PHONY : depend
++
++# Convenience name for target.
++tools/parallel_http/CMakeFiles/parallel_http.dir/rule:
++	cd /home/fanyu/Downloads/incubator-brpc && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tools/parallel_http/CMakeFiles/parallel_http.dir/rule
++.PHONY : tools/parallel_http/CMakeFiles/parallel_http.dir/rule
++
++# Convenience name for target.
++parallel_http: tools/parallel_http/CMakeFiles/parallel_http.dir/rule
++
++.PHONY : parallel_http
++
++# fast build rule for target.
++parallel_http/fast:
++	cd /home/fanyu/Downloads/incubator-brpc && $(MAKE) $(MAKESILENT) -f tools/parallel_http/CMakeFiles/parallel_http.dir/build.make tools/parallel_http/CMakeFiles/parallel_http.dir/build
++.PHONY : parallel_http/fast
++
++parallel_http.o: parallel_http.cpp.o
++
++.PHONY : parallel_http.o
++
++# target to build an object file
++parallel_http.cpp.o:
++	cd /home/fanyu/Downloads/incubator-brpc && $(MAKE) $(MAKESILENT) -f tools/parallel_http/CMakeFiles/parallel_http.dir/build.make tools/parallel_http/CMakeFiles/parallel_http.dir/parallel_http.cpp.o
++.PHONY : parallel_http.cpp.o
++
++parallel_http.i: parallel_http.cpp.i
++
++.PHONY : parallel_http.i
++
++# target to preprocess a source file
++parallel_http.cpp.i:
++	cd /home/fanyu/Downloads/incubator-brpc && $(MAKE) $(MAKESILENT) -f tools/parallel_http/CMakeFiles/parallel_http.dir/build.make tools/parallel_http/CMakeFiles/parallel_http.dir/parallel_http.cpp.i
++.PHONY : parallel_http.cpp.i
++
++parallel_http.s: parallel_http.cpp.s
++
++.PHONY : parallel_http.s
++
++# target to generate assembly for a file
++parallel_http.cpp.s:
++	cd /home/fanyu/Downloads/incubator-brpc && $(MAKE) $(MAKESILENT) -f tools/parallel_http/CMakeFiles/parallel_http.dir/build.make tools/parallel_http/CMakeFiles/parallel_http.dir/parallel_http.cpp.s
++.PHONY : parallel_http.cpp.s
++
++# Help Target
++help:
++	@echo "The following are some of the valid targets for this Makefile:"
++	@echo "... all (the default if no target is provided)"
++	@echo "... clean"
++	@echo "... depend"
++	@echo "... edit_cache"
++	@echo "... install"
++	@echo "... install/local"
++	@echo "... install/strip"
++	@echo "... list_install_components"
++	@echo "... package"
++	@echo "... package_source"
++	@echo "... rebuild_cache"
++	@echo "... parallel_http"
++	@echo "... parallel_http.o"
++	@echo "... parallel_http.i"
++	@echo "... parallel_http.s"
++.PHONY : help
++
++
++
++#=============================================================================
++# Special targets to cleanup operation of make.
++
++# Special rule to run CMake to check the build system integrity.
++# No rule that depends on this can have commands that come from listfiles
++# because they might be regenerated.
++cmake_check_build_system:
++	cd /home/fanyu/Downloads/incubator-brpc && $(CMAKE_COMMAND) -S$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR) --check-build-system CMakeFiles/Makefile.cmake 0
++.PHONY : cmake_check_build_system
++
+diff --git a/tools/rpc_press/Makefile b/tools/rpc_press/Makefile
+index 29d52c7..9e94e87 100644
+--- a/tools/rpc_press/Makefile
++++ b/tools/rpc_press/Makefile
+@@ -1,50 +1,394 @@
+-# Licensed to the Apache Software Foundation (ASF) under one
+-# or more contributor license agreements.  See the NOTICE file
+-# distributed with this work for additional information
+-# regarding copyright ownership.  The ASF licenses this file
+-# to you under the Apache License, Version 2.0 (the
+-# "License"); you may not use this file except in compliance
+-# with the License.  You may obtain a copy of the License at
+-#
+-#   http://www.apache.org/licenses/LICENSE-2.0
+-#
+-# Unless required by applicable law or agreed to in writing,
+-# software distributed under the License is distributed on an
+-# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+-# KIND, either express or implied.  See the License for the
+-# specific language governing permissions and limitations
+-# under the License.
+-
+-BRPC_PATH = ../../
+-include $(BRPC_PATH)/config.mk
+-CXXFLAGS = $(CPPFLAGS) -std=c++0x -DNDEBUG -O2 -D__const__= -pipe -W -Wall -fPIC -fno-omit-frame-pointer -Wno-unused-parameter
+-HDRPATHS = -I$(BRPC_PATH)/output/include $(addprefix -I, $(HDRS))
+-LIBPATHS = -L$(BRPC_PATH)/output/lib $(addprefix -L, $(LIBS))
+-STATIC_LINKINGS += $(BRPC_PATH)/output/lib/libbrpc.a
+-
+-SOURCES = $(wildcard *.cpp)
+-OBJS = $(addsuffix .o, $(basename $(SOURCES))) 
+-
+-.PHONY:all
+-all: rpc_press
+-
+-.PHONY:clean
++# CMAKE generated file: DO NOT EDIT!
++# Generated by "Unix Makefiles" Generator, CMake Version 3.17
++
++# Default target executed when no arguments are given to make.
++default_target: all
++
++.PHONY : default_target
++
++# Allow only one "make -f Makefile2" at a time, but pass parallelism.
++.NOTPARALLEL:
++
++
++#=============================================================================
++# Special targets provided by cmake.
++
++# Disable implicit rules so canonical targets will work.
++.SUFFIXES:
++
++
++# Disable VCS-based implicit rules.
++% : %,v
++
++
++# Disable VCS-based implicit rules.
++% : RCS/%
++
++
++# Disable VCS-based implicit rules.
++% : RCS/%,v
++
++
++# Disable VCS-based implicit rules.
++% : SCCS/s.%
++
++
++# Disable VCS-based implicit rules.
++% : s.%
++
++
++.SUFFIXES: .hpux_make_needs_suffix_list
++
++
++# Command-line flag to silence nested $(MAKE).
++$(VERBOSE)MAKESILENT = -s
++
++# Suppress display of executed commands.
++$(VERBOSE).SILENT:
++
++
++# A target that is always out of date.
++cmake_force:
++
++.PHONY : cmake_force
++
++#=============================================================================
++# Set environment variables for the build.
++
++# The shell in which to execute make rules.
++SHELL = /bin/sh
++
++# The CMake executable.
++CMAKE_COMMAND = /usr/bin/cmake3
++
++# The command to remove a file.
++RM = /usr/bin/cmake3 -E rm -f
++
++# Escaping for special characters.
++EQUALS = =
++
++# The top-level source directory on which CMake was run.
++CMAKE_SOURCE_DIR = /home/fanyu/Downloads/incubator-brpc
++
++# The top-level build directory on which CMake was run.
++CMAKE_BINARY_DIR = /home/fanyu/Downloads/incubator-brpc
++
++#=============================================================================
++# Targets provided globally by CMake.
++
++# Special rule for the target install/strip
++install/strip: preinstall
++	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Installing the project stripped..."
++	/usr/bin/cmake3 -DCMAKE_INSTALL_DO_STRIP=1 -P cmake_install.cmake
++.PHONY : install/strip
++
++# Special rule for the target install/strip
++install/strip/fast: preinstall/fast
++	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Installing the project stripped..."
++	/usr/bin/cmake3 -DCMAKE_INSTALL_DO_STRIP=1 -P cmake_install.cmake
++.PHONY : install/strip/fast
++
++# Special rule for the target install/local
++install/local: preinstall
++	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Installing only the local directory..."
++	/usr/bin/cmake3 -DCMAKE_INSTALL_LOCAL_ONLY=1 -P cmake_install.cmake
++.PHONY : install/local
++
++# Special rule for the target install/local
++install/local/fast: preinstall/fast
++	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Installing only the local directory..."
++	/usr/bin/cmake3 -DCMAKE_INSTALL_LOCAL_ONLY=1 -P cmake_install.cmake
++.PHONY : install/local/fast
++
++# Special rule for the target install
++install: preinstall
++	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Install the project..."
++	/usr/bin/cmake3 -P cmake_install.cmake
++.PHONY : install
++
++# Special rule for the target install
++install/fast: preinstall/fast
++	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Install the project..."
++	/usr/bin/cmake3 -P cmake_install.cmake
++.PHONY : install/fast
++
++# Special rule for the target list_install_components
++list_install_components:
++	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Available install components are: \"Unspecified\""
++.PHONY : list_install_components
++
++# Special rule for the target list_install_components
++list_install_components/fast: list_install_components
++
++.PHONY : list_install_components/fast
++
++# Special rule for the target rebuild_cache
++rebuild_cache:
++	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Running CMake to regenerate build system..."
++	/usr/bin/cmake3 --regenerate-during-build -S$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR)
++.PHONY : rebuild_cache
++
++# Special rule for the target rebuild_cache
++rebuild_cache/fast: rebuild_cache
++
++.PHONY : rebuild_cache/fast
++
++# Special rule for the target edit_cache
++edit_cache:
++	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Running CMake cache editor..."
++	/usr/bin/ccmake3 -S$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR)
++.PHONY : edit_cache
++
++# Special rule for the target edit_cache
++edit_cache/fast: edit_cache
++
++.PHONY : edit_cache/fast
++
++# Special rule for the target package_source
++package_source:
++	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Run CPack packaging tool for source..."
++	cd /home/fanyu/Downloads/incubator-brpc && /usr/bin/cpack3 --config ./CPackSourceConfig.cmake /home/fanyu/Downloads/incubator-brpc/CPackSourceConfig.cmake
++.PHONY : package_source
++
++# Special rule for the target package_source
++package_source/fast: package_source
++
++.PHONY : package_source/fast
++
++# Special rule for the target package
++package: preinstall
++	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Run CPack packaging tool..."
++	cd /home/fanyu/Downloads/incubator-brpc && /usr/bin/cpack3 --config ./CPackConfig.cmake
++.PHONY : package
++
++# Special rule for the target package
++package/fast: package
++
++.PHONY : package/fast
++
++# The main all target
++all: cmake_check_build_system
++	cd /home/fanyu/Downloads/incubator-brpc && $(CMAKE_COMMAND) -E cmake_progress_start /home/fanyu/Downloads/incubator-brpc/CMakeFiles /home/fanyu/Downloads/incubator-brpc/tools/rpc_press/CMakeFiles/progress.marks
++	cd /home/fanyu/Downloads/incubator-brpc && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tools/rpc_press/all
++	$(CMAKE_COMMAND) -E cmake_progress_start /home/fanyu/Downloads/incubator-brpc/CMakeFiles 0
++.PHONY : all
++
++# The main clean target
+ clean:
+-	@echo "Cleaning"
+-	@rm -rf rpc_press $(OBJS)
+-
+-rpc_press:$(OBJS)
+-	@echo "Linking $@"
+-ifeq ($(SYSTEM),Linux)
+-	@$(CXX) $(LIBPATHS) -Xlinker "-(" $^ -Wl,-Bstatic $(STATIC_LINKINGS) -Wl,-Bdynamic -Xlinker "-)" $(DYNAMIC_LINKINGS) -o $@
+-else ifeq ($(SYSTEM),Darwin)
+-	@$(CXX) $(LIBPATHS) $^ $(STATIC_LINKINGS) $(DYNAMIC_LINKINGS) -o $@
+-endif
+-
+-%.o:%.cpp
+-	@echo "Compiling $@"
+-	@$(CXX) -c $(HDRPATHS) $(CXXFLAGS) $< -o $@
+-
+-%.o:%.cc
+-	@echo "Compiling $@"
+-	@$(CXX) -c $(HDRPATHS) $(CXXFLAGS) $< -o $@
++	cd /home/fanyu/Downloads/incubator-brpc && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tools/rpc_press/clean
++.PHONY : clean
++
++# The main clean target
++clean/fast: clean
++
++.PHONY : clean/fast
++
++# Prepare targets for installation.
++preinstall: all
++	cd /home/fanyu/Downloads/incubator-brpc && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tools/rpc_press/preinstall
++.PHONY : preinstall
++
++# Prepare targets for installation.
++preinstall/fast:
++	cd /home/fanyu/Downloads/incubator-brpc && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tools/rpc_press/preinstall
++.PHONY : preinstall/fast
++
++# clear depends
++depend:
++	cd /home/fanyu/Downloads/incubator-brpc && $(CMAKE_COMMAND) -S$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR) --check-build-system CMakeFiles/Makefile.cmake 1
++.PHONY : depend
++
++# Convenience name for target.
++tools/rpc_press/CMakeFiles/rpc_press.dir/rule:
++	cd /home/fanyu/Downloads/incubator-brpc && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tools/rpc_press/CMakeFiles/rpc_press.dir/rule
++.PHONY : tools/rpc_press/CMakeFiles/rpc_press.dir/rule
++
++# Convenience name for target.
++rpc_press: tools/rpc_press/CMakeFiles/rpc_press.dir/rule
++
++.PHONY : rpc_press
++
++# fast build rule for target.
++rpc_press/fast:
++	cd /home/fanyu/Downloads/incubator-brpc && $(MAKE) $(MAKESILENT) -f tools/rpc_press/CMakeFiles/rpc_press.dir/build.make tools/rpc_press/CMakeFiles/rpc_press.dir/build
++.PHONY : rpc_press/fast
++
++info_thread.o: info_thread.cpp.o
++
++.PHONY : info_thread.o
++
++# target to build an object file
++info_thread.cpp.o:
++	cd /home/fanyu/Downloads/incubator-brpc && $(MAKE) $(MAKESILENT) -f tools/rpc_press/CMakeFiles/rpc_press.dir/build.make tools/rpc_press/CMakeFiles/rpc_press.dir/info_thread.cpp.o
++.PHONY : info_thread.cpp.o
++
++info_thread.i: info_thread.cpp.i
++
++.PHONY : info_thread.i
++
++# target to preprocess a source file
++info_thread.cpp.i:
++	cd /home/fanyu/Downloads/incubator-brpc && $(MAKE) $(MAKESILENT) -f tools/rpc_press/CMakeFiles/rpc_press.dir/build.make tools/rpc_press/CMakeFiles/rpc_press.dir/info_thread.cpp.i
++.PHONY : info_thread.cpp.i
++
++info_thread.s: info_thread.cpp.s
++
++.PHONY : info_thread.s
++
++# target to generate assembly for a file
++info_thread.cpp.s:
++	cd /home/fanyu/Downloads/incubator-brpc && $(MAKE) $(MAKESILENT) -f tools/rpc_press/CMakeFiles/rpc_press.dir/build.make tools/rpc_press/CMakeFiles/rpc_press.dir/info_thread.cpp.s
++.PHONY : info_thread.cpp.s
++
++json_loader.o: json_loader.cpp.o
++
++.PHONY : json_loader.o
++
++# target to build an object file
++json_loader.cpp.o:
++	cd /home/fanyu/Downloads/incubator-brpc && $(MAKE) $(MAKESILENT) -f tools/rpc_press/CMakeFiles/rpc_press.dir/build.make tools/rpc_press/CMakeFiles/rpc_press.dir/json_loader.cpp.o
++.PHONY : json_loader.cpp.o
++
++json_loader.i: json_loader.cpp.i
++
++.PHONY : json_loader.i
++
++# target to preprocess a source file
++json_loader.cpp.i:
++	cd /home/fanyu/Downloads/incubator-brpc && $(MAKE) $(MAKESILENT) -f tools/rpc_press/CMakeFiles/rpc_press.dir/build.make tools/rpc_press/CMakeFiles/rpc_press.dir/json_loader.cpp.i
++.PHONY : json_loader.cpp.i
++
++json_loader.s: json_loader.cpp.s
++
++.PHONY : json_loader.s
++
++# target to generate assembly for a file
++json_loader.cpp.s:
++	cd /home/fanyu/Downloads/incubator-brpc && $(MAKE) $(MAKESILENT) -f tools/rpc_press/CMakeFiles/rpc_press.dir/build.make tools/rpc_press/CMakeFiles/rpc_press.dir/json_loader.cpp.s
++.PHONY : json_loader.cpp.s
++
++pb_util.o: pb_util.cpp.o
++
++.PHONY : pb_util.o
++
++# target to build an object file
++pb_util.cpp.o:
++	cd /home/fanyu/Downloads/incubator-brpc && $(MAKE) $(MAKESILENT) -f tools/rpc_press/CMakeFiles/rpc_press.dir/build.make tools/rpc_press/CMakeFiles/rpc_press.dir/pb_util.cpp.o
++.PHONY : pb_util.cpp.o
++
++pb_util.i: pb_util.cpp.i
++
++.PHONY : pb_util.i
++
++# target to preprocess a source file
++pb_util.cpp.i:
++	cd /home/fanyu/Downloads/incubator-brpc && $(MAKE) $(MAKESILENT) -f tools/rpc_press/CMakeFiles/rpc_press.dir/build.make tools/rpc_press/CMakeFiles/rpc_press.dir/pb_util.cpp.i
++.PHONY : pb_util.cpp.i
++
++pb_util.s: pb_util.cpp.s
++
++.PHONY : pb_util.s
++
++# target to generate assembly for a file
++pb_util.cpp.s:
++	cd /home/fanyu/Downloads/incubator-brpc && $(MAKE) $(MAKESILENT) -f tools/rpc_press/CMakeFiles/rpc_press.dir/build.make tools/rpc_press/CMakeFiles/rpc_press.dir/pb_util.cpp.s
++.PHONY : pb_util.cpp.s
++
++rpc_press.o: rpc_press.cpp.o
++
++.PHONY : rpc_press.o
++
++# target to build an object file
++rpc_press.cpp.o:
++	cd /home/fanyu/Downloads/incubator-brpc && $(MAKE) $(MAKESILENT) -f tools/rpc_press/CMakeFiles/rpc_press.dir/build.make tools/rpc_press/CMakeFiles/rpc_press.dir/rpc_press.cpp.o
++.PHONY : rpc_press.cpp.o
++
++rpc_press.i: rpc_press.cpp.i
++
++.PHONY : rpc_press.i
++
++# target to preprocess a source file
++rpc_press.cpp.i:
++	cd /home/fanyu/Downloads/incubator-brpc && $(MAKE) $(MAKESILENT) -f tools/rpc_press/CMakeFiles/rpc_press.dir/build.make tools/rpc_press/CMakeFiles/rpc_press.dir/rpc_press.cpp.i
++.PHONY : rpc_press.cpp.i
++
++rpc_press.s: rpc_press.cpp.s
++
++.PHONY : rpc_press.s
++
++# target to generate assembly for a file
++rpc_press.cpp.s:
++	cd /home/fanyu/Downloads/incubator-brpc && $(MAKE) $(MAKESILENT) -f tools/rpc_press/CMakeFiles/rpc_press.dir/build.make tools/rpc_press/CMakeFiles/rpc_press.dir/rpc_press.cpp.s
++.PHONY : rpc_press.cpp.s
++
++rpc_press_impl.o: rpc_press_impl.cpp.o
++
++.PHONY : rpc_press_impl.o
++
++# target to build an object file
++rpc_press_impl.cpp.o:
++	cd /home/fanyu/Downloads/incubator-brpc && $(MAKE) $(MAKESILENT) -f tools/rpc_press/CMakeFiles/rpc_press.dir/build.make tools/rpc_press/CMakeFiles/rpc_press.dir/rpc_press_impl.cpp.o
++.PHONY : rpc_press_impl.cpp.o
++
++rpc_press_impl.i: rpc_press_impl.cpp.i
++
++.PHONY : rpc_press_impl.i
++
++# target to preprocess a source file
++rpc_press_impl.cpp.i:
++	cd /home/fanyu/Downloads/incubator-brpc && $(MAKE) $(MAKESILENT) -f tools/rpc_press/CMakeFiles/rpc_press.dir/build.make tools/rpc_press/CMakeFiles/rpc_press.dir/rpc_press_impl.cpp.i
++.PHONY : rpc_press_impl.cpp.i
++
++rpc_press_impl.s: rpc_press_impl.cpp.s
++
++.PHONY : rpc_press_impl.s
++
++# target to generate assembly for a file
++rpc_press_impl.cpp.s:
++	cd /home/fanyu/Downloads/incubator-brpc && $(MAKE) $(MAKESILENT) -f tools/rpc_press/CMakeFiles/rpc_press.dir/build.make tools/rpc_press/CMakeFiles/rpc_press.dir/rpc_press_impl.cpp.s
++.PHONY : rpc_press_impl.cpp.s
++
++# Help Target
++help:
++	@echo "The following are some of the valid targets for this Makefile:"
++	@echo "... all (the default if no target is provided)"
++	@echo "... clean"
++	@echo "... depend"
++	@echo "... edit_cache"
++	@echo "... install"
++	@echo "... install/local"
++	@echo "... install/strip"
++	@echo "... list_install_components"
++	@echo "... package"
++	@echo "... package_source"
++	@echo "... rebuild_cache"
++	@echo "... rpc_press"
++	@echo "... info_thread.o"
++	@echo "... info_thread.i"
++	@echo "... info_thread.s"
++	@echo "... json_loader.o"
++	@echo "... json_loader.i"
++	@echo "... json_loader.s"
++	@echo "... pb_util.o"
++	@echo "... pb_util.i"
++	@echo "... pb_util.s"
++	@echo "... rpc_press.o"
++	@echo "... rpc_press.i"
++	@echo "... rpc_press.s"
++	@echo "... rpc_press_impl.o"
++	@echo "... rpc_press_impl.i"
++	@echo "... rpc_press_impl.s"
++.PHONY : help
++
++
++
++#=============================================================================
++# Special targets to cleanup operation of make.
++
++# Special rule to run CMake to check the build system integrity.
++# No rule that depends on this can have commands that come from listfiles
++# because they might be regenerated.
++cmake_check_build_system:
++	cd /home/fanyu/Downloads/incubator-brpc && $(CMAKE_COMMAND) -S$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR) --check-build-system CMakeFiles/Makefile.cmake 0
++.PHONY : cmake_check_build_system
++
 diff --git a/tools/rpc_press/info_thread.cpp b/tools/rpc_press/info_thread.cpp
 index 99c9db1..51d0811 100644
 --- a/tools/rpc_press/info_thread.cpp
@@ -2053,6 +4101,364 @@ index 99c9db1..51d0811 100644
  
  namespace brpc {
  
+diff --git a/tools/rpc_replay/Makefile b/tools/rpc_replay/Makefile
+index 20053e9..4e8d2c1 100644
+--- a/tools/rpc_replay/Makefile
++++ b/tools/rpc_replay/Makefile
+@@ -1,50 +1,304 @@
+-# Licensed to the Apache Software Foundation (ASF) under one
+-# or more contributor license agreements.  See the NOTICE file
+-# distributed with this work for additional information
+-# regarding copyright ownership.  The ASF licenses this file
+-# to you under the Apache License, Version 2.0 (the
+-# "License"); you may not use this file except in compliance
+-# with the License.  You may obtain a copy of the License at
+-#
+-#   http://www.apache.org/licenses/LICENSE-2.0
+-#
+-# Unless required by applicable law or agreed to in writing,
+-# software distributed under the License is distributed on an
+-# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+-# KIND, either express or implied.  See the License for the
+-# specific language governing permissions and limitations
+-# under the License.
+-
+-BRPC_PATH = ../../
+-include $(BRPC_PATH)/config.mk
+-CXXFLAGS = $(CPPFLAGS) -std=c++0x -DNDEBUG -O2 -D__const__= -pipe -W -Wall -fPIC -fno-omit-frame-pointer -Wno-unused-parameter
+-HDRPATHS = -I$(BRPC_PATH)/output/include $(addprefix -I, $(HDRS))
+-LIBPATHS = -L$(BRPC_PATH)/output/lib $(addprefix -L, $(LIBS))
+-STATIC_LINKINGS += $(BRPC_PATH)/output/lib/libbrpc.a
+-
+-SOURCES = $(wildcard *.cpp)
+-OBJS = $(addsuffix .o, $(basename $(SOURCES))) 
+-
+-.PHONY:all
+-all: rpc_replay
+-
+-.PHONY:clean
++# CMAKE generated file: DO NOT EDIT!
++# Generated by "Unix Makefiles" Generator, CMake Version 3.17
++
++# Default target executed when no arguments are given to make.
++default_target: all
++
++.PHONY : default_target
++
++# Allow only one "make -f Makefile2" at a time, but pass parallelism.
++.NOTPARALLEL:
++
++
++#=============================================================================
++# Special targets provided by cmake.
++
++# Disable implicit rules so canonical targets will work.
++.SUFFIXES:
++
++
++# Disable VCS-based implicit rules.
++% : %,v
++
++
++# Disable VCS-based implicit rules.
++% : RCS/%
++
++
++# Disable VCS-based implicit rules.
++% : RCS/%,v
++
++
++# Disable VCS-based implicit rules.
++% : SCCS/s.%
++
++
++# Disable VCS-based implicit rules.
++% : s.%
++
++
++.SUFFIXES: .hpux_make_needs_suffix_list
++
++
++# Command-line flag to silence nested $(MAKE).
++$(VERBOSE)MAKESILENT = -s
++
++# Suppress display of executed commands.
++$(VERBOSE).SILENT:
++
++
++# A target that is always out of date.
++cmake_force:
++
++.PHONY : cmake_force
++
++#=============================================================================
++# Set environment variables for the build.
++
++# The shell in which to execute make rules.
++SHELL = /bin/sh
++
++# The CMake executable.
++CMAKE_COMMAND = /usr/bin/cmake3
++
++# The command to remove a file.
++RM = /usr/bin/cmake3 -E rm -f
++
++# Escaping for special characters.
++EQUALS = =
++
++# The top-level source directory on which CMake was run.
++CMAKE_SOURCE_DIR = /home/fanyu/Downloads/incubator-brpc
++
++# The top-level build directory on which CMake was run.
++CMAKE_BINARY_DIR = /home/fanyu/Downloads/incubator-brpc
++
++#=============================================================================
++# Targets provided globally by CMake.
++
++# Special rule for the target install/strip
++install/strip: preinstall
++	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Installing the project stripped..."
++	/usr/bin/cmake3 -DCMAKE_INSTALL_DO_STRIP=1 -P cmake_install.cmake
++.PHONY : install/strip
++
++# Special rule for the target install/strip
++install/strip/fast: preinstall/fast
++	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Installing the project stripped..."
++	/usr/bin/cmake3 -DCMAKE_INSTALL_DO_STRIP=1 -P cmake_install.cmake
++.PHONY : install/strip/fast
++
++# Special rule for the target install/local
++install/local: preinstall
++	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Installing only the local directory..."
++	/usr/bin/cmake3 -DCMAKE_INSTALL_LOCAL_ONLY=1 -P cmake_install.cmake
++.PHONY : install/local
++
++# Special rule for the target install/local
++install/local/fast: preinstall/fast
++	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Installing only the local directory..."
++	/usr/bin/cmake3 -DCMAKE_INSTALL_LOCAL_ONLY=1 -P cmake_install.cmake
++.PHONY : install/local/fast
++
++# Special rule for the target install
++install: preinstall
++	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Install the project..."
++	/usr/bin/cmake3 -P cmake_install.cmake
++.PHONY : install
++
++# Special rule for the target install
++install/fast: preinstall/fast
++	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Install the project..."
++	/usr/bin/cmake3 -P cmake_install.cmake
++.PHONY : install/fast
++
++# Special rule for the target list_install_components
++list_install_components:
++	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Available install components are: \"Unspecified\""
++.PHONY : list_install_components
++
++# Special rule for the target list_install_components
++list_install_components/fast: list_install_components
++
++.PHONY : list_install_components/fast
++
++# Special rule for the target rebuild_cache
++rebuild_cache:
++	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Running CMake to regenerate build system..."
++	/usr/bin/cmake3 --regenerate-during-build -S$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR)
++.PHONY : rebuild_cache
++
++# Special rule for the target rebuild_cache
++rebuild_cache/fast: rebuild_cache
++
++.PHONY : rebuild_cache/fast
++
++# Special rule for the target edit_cache
++edit_cache:
++	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Running CMake cache editor..."
++	/usr/bin/ccmake3 -S$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR)
++.PHONY : edit_cache
++
++# Special rule for the target edit_cache
++edit_cache/fast: edit_cache
++
++.PHONY : edit_cache/fast
++
++# Special rule for the target package_source
++package_source:
++	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Run CPack packaging tool for source..."
++	cd /home/fanyu/Downloads/incubator-brpc && /usr/bin/cpack3 --config ./CPackSourceConfig.cmake /home/fanyu/Downloads/incubator-brpc/CPackSourceConfig.cmake
++.PHONY : package_source
++
++# Special rule for the target package_source
++package_source/fast: package_source
++
++.PHONY : package_source/fast
++
++# Special rule for the target package
++package: preinstall
++	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Run CPack packaging tool..."
++	cd /home/fanyu/Downloads/incubator-brpc && /usr/bin/cpack3 --config ./CPackConfig.cmake
++.PHONY : package
++
++# Special rule for the target package
++package/fast: package
++
++.PHONY : package/fast
++
++# The main all target
++all: cmake_check_build_system
++	cd /home/fanyu/Downloads/incubator-brpc && $(CMAKE_COMMAND) -E cmake_progress_start /home/fanyu/Downloads/incubator-brpc/CMakeFiles /home/fanyu/Downloads/incubator-brpc/tools/rpc_replay/CMakeFiles/progress.marks
++	cd /home/fanyu/Downloads/incubator-brpc && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tools/rpc_replay/all
++	$(CMAKE_COMMAND) -E cmake_progress_start /home/fanyu/Downloads/incubator-brpc/CMakeFiles 0
++.PHONY : all
++
++# The main clean target
+ clean:
+-	@echo "Cleaning"
+-	@rm -rf rpc_replay $(OBJS)
+-
+-rpc_replay:$(OBJS)
+-	@echo "Linking $@"
+-ifeq ($(SYSTEM),Linux)
+-	@$(CXX) $(LIBPATHS) -Xlinker "-(" $^ -Wl,-Bstatic $(STATIC_LINKINGS) -Wl,-Bdynamic -Xlinker "-)" $(DYNAMIC_LINKINGS) -o $@
+-else ifeq ($(SYSTEM),Darwin)
+-	@$(CXX) $(LIBPATHS) $^ $(STATIC_LINKINGS) $(DYNAMIC_LINKINGS) -o $@
+-endif
+-
+-%.o:%.cpp
+-	@echo "Compiling $@"
+-	@$(CXX) -c $(HDRPATHS) $(CXXFLAGS) $< -o $@
+-
+-%.o:%.cc
+-	@echo "Compiling $@"
+-	@$(CXX) -c $(HDRPATHS) $(CXXFLAGS) $< -o $@
++	cd /home/fanyu/Downloads/incubator-brpc && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tools/rpc_replay/clean
++.PHONY : clean
++
++# The main clean target
++clean/fast: clean
++
++.PHONY : clean/fast
++
++# Prepare targets for installation.
++preinstall: all
++	cd /home/fanyu/Downloads/incubator-brpc && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tools/rpc_replay/preinstall
++.PHONY : preinstall
++
++# Prepare targets for installation.
++preinstall/fast:
++	cd /home/fanyu/Downloads/incubator-brpc && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tools/rpc_replay/preinstall
++.PHONY : preinstall/fast
++
++# clear depends
++depend:
++	cd /home/fanyu/Downloads/incubator-brpc && $(CMAKE_COMMAND) -S$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR) --check-build-system CMakeFiles/Makefile.cmake 1
++.PHONY : depend
++
++# Convenience name for target.
++tools/rpc_replay/CMakeFiles/rpc_replay.dir/rule:
++	cd /home/fanyu/Downloads/incubator-brpc && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tools/rpc_replay/CMakeFiles/rpc_replay.dir/rule
++.PHONY : tools/rpc_replay/CMakeFiles/rpc_replay.dir/rule
++
++# Convenience name for target.
++rpc_replay: tools/rpc_replay/CMakeFiles/rpc_replay.dir/rule
++
++.PHONY : rpc_replay
++
++# fast build rule for target.
++rpc_replay/fast:
++	cd /home/fanyu/Downloads/incubator-brpc && $(MAKE) $(MAKESILENT) -f tools/rpc_replay/CMakeFiles/rpc_replay.dir/build.make tools/rpc_replay/CMakeFiles/rpc_replay.dir/build
++.PHONY : rpc_replay/fast
++
++info_thread.o: info_thread.cpp.o
++
++.PHONY : info_thread.o
++
++# target to build an object file
++info_thread.cpp.o:
++	cd /home/fanyu/Downloads/incubator-brpc && $(MAKE) $(MAKESILENT) -f tools/rpc_replay/CMakeFiles/rpc_replay.dir/build.make tools/rpc_replay/CMakeFiles/rpc_replay.dir/info_thread.cpp.o
++.PHONY : info_thread.cpp.o
++
++info_thread.i: info_thread.cpp.i
++
++.PHONY : info_thread.i
++
++# target to preprocess a source file
++info_thread.cpp.i:
++	cd /home/fanyu/Downloads/incubator-brpc && $(MAKE) $(MAKESILENT) -f tools/rpc_replay/CMakeFiles/rpc_replay.dir/build.make tools/rpc_replay/CMakeFiles/rpc_replay.dir/info_thread.cpp.i
++.PHONY : info_thread.cpp.i
++
++info_thread.s: info_thread.cpp.s
++
++.PHONY : info_thread.s
++
++# target to generate assembly for a file
++info_thread.cpp.s:
++	cd /home/fanyu/Downloads/incubator-brpc && $(MAKE) $(MAKESILENT) -f tools/rpc_replay/CMakeFiles/rpc_replay.dir/build.make tools/rpc_replay/CMakeFiles/rpc_replay.dir/info_thread.cpp.s
++.PHONY : info_thread.cpp.s
++
++rpc_replay.o: rpc_replay.cpp.o
++
++.PHONY : rpc_replay.o
++
++# target to build an object file
++rpc_replay.cpp.o:
++	cd /home/fanyu/Downloads/incubator-brpc && $(MAKE) $(MAKESILENT) -f tools/rpc_replay/CMakeFiles/rpc_replay.dir/build.make tools/rpc_replay/CMakeFiles/rpc_replay.dir/rpc_replay.cpp.o
++.PHONY : rpc_replay.cpp.o
++
++rpc_replay.i: rpc_replay.cpp.i
++
++.PHONY : rpc_replay.i
++
++# target to preprocess a source file
++rpc_replay.cpp.i:
++	cd /home/fanyu/Downloads/incubator-brpc && $(MAKE) $(MAKESILENT) -f tools/rpc_replay/CMakeFiles/rpc_replay.dir/build.make tools/rpc_replay/CMakeFiles/rpc_replay.dir/rpc_replay.cpp.i
++.PHONY : rpc_replay.cpp.i
++
++rpc_replay.s: rpc_replay.cpp.s
++
++.PHONY : rpc_replay.s
++
++# target to generate assembly for a file
++rpc_replay.cpp.s:
++	cd /home/fanyu/Downloads/incubator-brpc && $(MAKE) $(MAKESILENT) -f tools/rpc_replay/CMakeFiles/rpc_replay.dir/build.make tools/rpc_replay/CMakeFiles/rpc_replay.dir/rpc_replay.cpp.s
++.PHONY : rpc_replay.cpp.s
++
++# Help Target
++help:
++	@echo "The following are some of the valid targets for this Makefile:"
++	@echo "... all (the default if no target is provided)"
++	@echo "... clean"
++	@echo "... depend"
++	@echo "... edit_cache"
++	@echo "... install"
++	@echo "... install/local"
++	@echo "... install/strip"
++	@echo "... list_install_components"
++	@echo "... package"
++	@echo "... package_source"
++	@echo "... rebuild_cache"
++	@echo "... rpc_replay"
++	@echo "... info_thread.o"
++	@echo "... info_thread.i"
++	@echo "... info_thread.s"
++	@echo "... rpc_replay.o"
++	@echo "... rpc_replay.i"
++	@echo "... rpc_replay.s"
++.PHONY : help
++
++
++
++#=============================================================================
++# Special targets to cleanup operation of make.
++
++# Special rule to run CMake to check the build system integrity.
++# No rule that depends on this can have commands that come from listfiles
++# because they might be regenerated.
++cmake_check_build_system:
++	cd /home/fanyu/Downloads/incubator-brpc && $(CMAKE_COMMAND) -S$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR) --check-build-system CMakeFiles/Makefile.cmake 0
++.PHONY : cmake_check_build_system
++
 diff --git a/tools/rpc_replay/info_thread.cpp b/tools/rpc_replay/info_thread.cpp
 index d20d70e..51078bf 100644
 --- a/tools/rpc_replay/info_thread.cpp
@@ -2065,3 +4471,700 @@ index d20d70e..51078bf 100644
  
  namespace brpc {
  
+diff --git a/tools/rpc_view/Makefile b/tools/rpc_view/Makefile
+index 7c555f3..82cbddd 100644
+--- a/tools/rpc_view/Makefile
++++ b/tools/rpc_view/Makefile
+@@ -1,61 +1,304 @@
+-# Licensed to the Apache Software Foundation (ASF) under one
+-# or more contributor license agreements.  See the NOTICE file
+-# distributed with this work for additional information
+-# regarding copyright ownership.  The ASF licenses this file
+-# to you under the Apache License, Version 2.0 (the
+-# "License"); you may not use this file except in compliance
+-# with the License.  You may obtain a copy of the License at
+-#
+-#   http://www.apache.org/licenses/LICENSE-2.0
+-#
+-# Unless required by applicable law or agreed to in writing,
+-# software distributed under the License is distributed on an
+-# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+-# KIND, either express or implied.  See the License for the
+-# specific language governing permissions and limitations
+-# under the License.
+-
+-BRPC_PATH = ../../
+-include $(BRPC_PATH)/config.mk
+-# Notes on the flags:
+-# 1. Added -fno-omit-frame-pointer: perf/tcmalloc-profiler use frame pointers by default
+-# 2. Added -D__const__= : Avoid over-optimizations of TLS variables by GCC>=4.8
+-CXXFLAGS = $(CPPFLAGS) -std=c++0x -DNDEBUG -O2 -D__const__= -pipe -W -Wall -Wno-unused-parameter -fPIC -fno-omit-frame-pointer
+-HDRPATHS = -I$(BRPC_PATH)/output/include $(addprefix -I, $(HDRS))
+-LIBPATHS = -L$(BRPC_PATH)/output/lib $(addprefix -L, $(LIBS))
+-STATIC_LINKINGS += $(BRPC_PATH)/output/lib/libbrpc.a
+-
+-CLIENT_SOURCES = rpc_view.cpp
+-PROTOS = $(wildcard *.proto)
+-
+-PROTO_OBJS = $(PROTOS:.proto=.pb.o)
+-PROTO_GENS = $(PROTOS:.proto=.pb.h) $(PROTOS:.proto=.pb.cc)
+-CLIENT_OBJS = $(addsuffix .o, $(basename $(CLIENT_SOURCES))) 
+-
+-.PHONY:all
+-all: rpc_view
+-
+-.PHONY:clean
++# CMAKE generated file: DO NOT EDIT!
++# Generated by "Unix Makefiles" Generator, CMake Version 3.17
++
++# Default target executed when no arguments are given to make.
++default_target: all
++
++.PHONY : default_target
++
++# Allow only one "make -f Makefile2" at a time, but pass parallelism.
++.NOTPARALLEL:
++
++
++#=============================================================================
++# Special targets provided by cmake.
++
++# Disable implicit rules so canonical targets will work.
++.SUFFIXES:
++
++
++# Disable VCS-based implicit rules.
++% : %,v
++
++
++# Disable VCS-based implicit rules.
++% : RCS/%
++
++
++# Disable VCS-based implicit rules.
++% : RCS/%,v
++
++
++# Disable VCS-based implicit rules.
++% : SCCS/s.%
++
++
++# Disable VCS-based implicit rules.
++% : s.%
++
++
++.SUFFIXES: .hpux_make_needs_suffix_list
++
++
++# Command-line flag to silence nested $(MAKE).
++$(VERBOSE)MAKESILENT = -s
++
++# Suppress display of executed commands.
++$(VERBOSE).SILENT:
++
++
++# A target that is always out of date.
++cmake_force:
++
++.PHONY : cmake_force
++
++#=============================================================================
++# Set environment variables for the build.
++
++# The shell in which to execute make rules.
++SHELL = /bin/sh
++
++# The CMake executable.
++CMAKE_COMMAND = /usr/bin/cmake3
++
++# The command to remove a file.
++RM = /usr/bin/cmake3 -E rm -f
++
++# Escaping for special characters.
++EQUALS = =
++
++# The top-level source directory on which CMake was run.
++CMAKE_SOURCE_DIR = /home/fanyu/Downloads/incubator-brpc
++
++# The top-level build directory on which CMake was run.
++CMAKE_BINARY_DIR = /home/fanyu/Downloads/incubator-brpc
++
++#=============================================================================
++# Targets provided globally by CMake.
++
++# Special rule for the target install/strip
++install/strip: preinstall
++	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Installing the project stripped..."
++	/usr/bin/cmake3 -DCMAKE_INSTALL_DO_STRIP=1 -P cmake_install.cmake
++.PHONY : install/strip
++
++# Special rule for the target install/strip
++install/strip/fast: preinstall/fast
++	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Installing the project stripped..."
++	/usr/bin/cmake3 -DCMAKE_INSTALL_DO_STRIP=1 -P cmake_install.cmake
++.PHONY : install/strip/fast
++
++# Special rule for the target install/local
++install/local: preinstall
++	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Installing only the local directory..."
++	/usr/bin/cmake3 -DCMAKE_INSTALL_LOCAL_ONLY=1 -P cmake_install.cmake
++.PHONY : install/local
++
++# Special rule for the target install/local
++install/local/fast: preinstall/fast
++	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Installing only the local directory..."
++	/usr/bin/cmake3 -DCMAKE_INSTALL_LOCAL_ONLY=1 -P cmake_install.cmake
++.PHONY : install/local/fast
++
++# Special rule for the target install
++install: preinstall
++	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Install the project..."
++	/usr/bin/cmake3 -P cmake_install.cmake
++.PHONY : install
++
++# Special rule for the target install
++install/fast: preinstall/fast
++	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Install the project..."
++	/usr/bin/cmake3 -P cmake_install.cmake
++.PHONY : install/fast
++
++# Special rule for the target list_install_components
++list_install_components:
++	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Available install components are: \"Unspecified\""
++.PHONY : list_install_components
++
++# Special rule for the target list_install_components
++list_install_components/fast: list_install_components
++
++.PHONY : list_install_components/fast
++
++# Special rule for the target rebuild_cache
++rebuild_cache:
++	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Running CMake to regenerate build system..."
++	/usr/bin/cmake3 --regenerate-during-build -S$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR)
++.PHONY : rebuild_cache
++
++# Special rule for the target rebuild_cache
++rebuild_cache/fast: rebuild_cache
++
++.PHONY : rebuild_cache/fast
++
++# Special rule for the target edit_cache
++edit_cache:
++	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Running CMake cache editor..."
++	/usr/bin/ccmake3 -S$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR)
++.PHONY : edit_cache
++
++# Special rule for the target edit_cache
++edit_cache/fast: edit_cache
++
++.PHONY : edit_cache/fast
++
++# Special rule for the target package_source
++package_source:
++	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Run CPack packaging tool for source..."
++	cd /home/fanyu/Downloads/incubator-brpc && /usr/bin/cpack3 --config ./CPackSourceConfig.cmake /home/fanyu/Downloads/incubator-brpc/CPackSourceConfig.cmake
++.PHONY : package_source
++
++# Special rule for the target package_source
++package_source/fast: package_source
++
++.PHONY : package_source/fast
++
++# Special rule for the target package
++package: preinstall
++	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Run CPack packaging tool..."
++	cd /home/fanyu/Downloads/incubator-brpc && /usr/bin/cpack3 --config ./CPackConfig.cmake
++.PHONY : package
++
++# Special rule for the target package
++package/fast: package
++
++.PHONY : package/fast
++
++# The main all target
++all: cmake_check_build_system
++	cd /home/fanyu/Downloads/incubator-brpc && $(CMAKE_COMMAND) -E cmake_progress_start /home/fanyu/Downloads/incubator-brpc/CMakeFiles /home/fanyu/Downloads/incubator-brpc/tools/rpc_view/CMakeFiles/progress.marks
++	cd /home/fanyu/Downloads/incubator-brpc && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tools/rpc_view/all
++	$(CMAKE_COMMAND) -E cmake_progress_start /home/fanyu/Downloads/incubator-brpc/CMakeFiles 0
++.PHONY : all
++
++# The main clean target
+ clean:
+-	@echo "Cleaning"
+-	@rm -rf rpc_view $(PROTO_GENS) $(PROTO_OBJS) $(CLIENT_OBJS)
+-
+-rpc_view:$(PROTO_OBJS) $(CLIENT_OBJS)
+-	@echo "Linking $@"
+-ifeq ($(SYSTEM),Linux)
+-	@$(CXX) $(LIBPATHS) -Xlinker "-(" $^ -Wl,-Bstatic $(STATIC_LINKINGS) -Wl,-Bdynamic -Xlinker "-)" $(DYNAMIC_LINKINGS) -o $@
+-else ifeq ($(SYSTEM),Darwin)
+-	@$(CXX) $(LIBPATHS) $^ $(STATIC_LINKINGS) $(DYNAMIC_LINKINGS) -o $@
+-endif
+-
+-%.pb.cc %.pb.h:%.proto
+-	@echo "Generating $@"
+-	@$(PROTOC) --cpp_out=. --proto_path=. $(PROTOC_EXTRA_ARGS) $<
+-
+-%.o:%.cpp
+-	@echo "Compiling $@"
+-	@$(CXX) -c $(HDRPATHS) $(CXXFLAGS) $< -o $@
+-
+-%.o:%.cc
+-	@echo "Compiling $@"
+-	@$(CXX) -c $(HDRPATHS) $(CXXFLAGS) $< -o $@
++	cd /home/fanyu/Downloads/incubator-brpc && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tools/rpc_view/clean
++.PHONY : clean
++
++# The main clean target
++clean/fast: clean
++
++.PHONY : clean/fast
++
++# Prepare targets for installation.
++preinstall: all
++	cd /home/fanyu/Downloads/incubator-brpc && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tools/rpc_view/preinstall
++.PHONY : preinstall
++
++# Prepare targets for installation.
++preinstall/fast:
++	cd /home/fanyu/Downloads/incubator-brpc && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tools/rpc_view/preinstall
++.PHONY : preinstall/fast
++
++# clear depends
++depend:
++	cd /home/fanyu/Downloads/incubator-brpc && $(CMAKE_COMMAND) -S$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR) --check-build-system CMakeFiles/Makefile.cmake 1
++.PHONY : depend
++
++# Convenience name for target.
++tools/rpc_view/CMakeFiles/rpc_view.dir/rule:
++	cd /home/fanyu/Downloads/incubator-brpc && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tools/rpc_view/CMakeFiles/rpc_view.dir/rule
++.PHONY : tools/rpc_view/CMakeFiles/rpc_view.dir/rule
++
++# Convenience name for target.
++rpc_view: tools/rpc_view/CMakeFiles/rpc_view.dir/rule
++
++.PHONY : rpc_view
++
++# fast build rule for target.
++rpc_view/fast:
++	cd /home/fanyu/Downloads/incubator-brpc && $(MAKE) $(MAKESILENT) -f tools/rpc_view/CMakeFiles/rpc_view.dir/build.make tools/rpc_view/CMakeFiles/rpc_view.dir/build
++.PHONY : rpc_view/fast
++
++rpc_view.o: rpc_view.cpp.o
++
++.PHONY : rpc_view.o
++
++# target to build an object file
++rpc_view.cpp.o:
++	cd /home/fanyu/Downloads/incubator-brpc && $(MAKE) $(MAKESILENT) -f tools/rpc_view/CMakeFiles/rpc_view.dir/build.make tools/rpc_view/CMakeFiles/rpc_view.dir/rpc_view.cpp.o
++.PHONY : rpc_view.cpp.o
++
++rpc_view.i: rpc_view.cpp.i
++
++.PHONY : rpc_view.i
++
++# target to preprocess a source file
++rpc_view.cpp.i:
++	cd /home/fanyu/Downloads/incubator-brpc && $(MAKE) $(MAKESILENT) -f tools/rpc_view/CMakeFiles/rpc_view.dir/build.make tools/rpc_view/CMakeFiles/rpc_view.dir/rpc_view.cpp.i
++.PHONY : rpc_view.cpp.i
++
++rpc_view.s: rpc_view.cpp.s
++
++.PHONY : rpc_view.s
++
++# target to generate assembly for a file
++rpc_view.cpp.s:
++	cd /home/fanyu/Downloads/incubator-brpc && $(MAKE) $(MAKESILENT) -f tools/rpc_view/CMakeFiles/rpc_view.dir/build.make tools/rpc_view/CMakeFiles/rpc_view.dir/rpc_view.cpp.s
++.PHONY : rpc_view.cpp.s
++
++view.pb.o: view.pb.cc.o
++
++.PHONY : view.pb.o
++
++# target to build an object file
++view.pb.cc.o:
++	cd /home/fanyu/Downloads/incubator-brpc && $(MAKE) $(MAKESILENT) -f tools/rpc_view/CMakeFiles/rpc_view.dir/build.make tools/rpc_view/CMakeFiles/rpc_view.dir/view.pb.cc.o
++.PHONY : view.pb.cc.o
++
++view.pb.i: view.pb.cc.i
++
++.PHONY : view.pb.i
++
++# target to preprocess a source file
++view.pb.cc.i:
++	cd /home/fanyu/Downloads/incubator-brpc && $(MAKE) $(MAKESILENT) -f tools/rpc_view/CMakeFiles/rpc_view.dir/build.make tools/rpc_view/CMakeFiles/rpc_view.dir/view.pb.cc.i
++.PHONY : view.pb.cc.i
++
++view.pb.s: view.pb.cc.s
++
++.PHONY : view.pb.s
++
++# target to generate assembly for a file
++view.pb.cc.s:
++	cd /home/fanyu/Downloads/incubator-brpc && $(MAKE) $(MAKESILENT) -f tools/rpc_view/CMakeFiles/rpc_view.dir/build.make tools/rpc_view/CMakeFiles/rpc_view.dir/view.pb.cc.s
++.PHONY : view.pb.cc.s
++
++# Help Target
++help:
++	@echo "The following are some of the valid targets for this Makefile:"
++	@echo "... all (the default if no target is provided)"
++	@echo "... clean"
++	@echo "... depend"
++	@echo "... edit_cache"
++	@echo "... install"
++	@echo "... install/local"
++	@echo "... install/strip"
++	@echo "... list_install_components"
++	@echo "... package"
++	@echo "... package_source"
++	@echo "... rebuild_cache"
++	@echo "... rpc_view"
++	@echo "... rpc_view.o"
++	@echo "... rpc_view.i"
++	@echo "... rpc_view.s"
++	@echo "... view.pb.o"
++	@echo "... view.pb.i"
++	@echo "... view.pb.s"
++.PHONY : help
++
++
++
++#=============================================================================
++# Special targets to cleanup operation of make.
++
++# Special rule to run CMake to check the build system integrity.
++# No rule that depends on this can have commands that come from listfiles
++# because they might be regenerated.
++cmake_check_build_system:
++	cd /home/fanyu/Downloads/incubator-brpc && $(CMAKE_COMMAND) -S$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR) --check-build-system CMakeFiles/Makefile.cmake 0
++.PHONY : cmake_check_build_system
++
+diff --git a/tools/trackme_server/Makefile b/tools/trackme_server/Makefile
+index e3ca235..7d1f8c5 100644
+--- a/tools/trackme_server/Makefile
++++ b/tools/trackme_server/Makefile
+@@ -1,50 +1,274 @@
+-# Licensed to the Apache Software Foundation (ASF) under one
+-# or more contributor license agreements.  See the NOTICE file
+-# distributed with this work for additional information
+-# regarding copyright ownership.  The ASF licenses this file
+-# to you under the Apache License, Version 2.0 (the
+-# "License"); you may not use this file except in compliance
+-# with the License.  You may obtain a copy of the License at
+-#
+-#   http://www.apache.org/licenses/LICENSE-2.0
+-#
+-# Unless required by applicable law or agreed to in writing,
+-# software distributed under the License is distributed on an
+-# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+-# KIND, either express or implied.  See the License for the
+-# specific language governing permissions and limitations
+-# under the License.
+-
+-BRPC_PATH = ../../
+-include $(BRPC_PATH)/config.mk
+-CXXFLAGS = $(CPPFLAGS) -std=c++0x -DNDEBUG -O2 -D__const__= -pipe -W -Wall -fPIC -fno-omit-frame-pointer
+-HDRPATHS = -I$(BRPC_PATH)/output/include $(addprefix -I, $(HDRS))
+-LIBPATHS = -L$(BRPC_PATH)/output/lib $(addprefix -L, $(LIBS))
+-STATIC_LINKINGS += $(BRPC_PATH)/output/lib/libbrpc.a
+-
+-SOURCES = $(wildcard *.cpp)
+-OBJS = $(addsuffix .o, $(basename $(SOURCES))) 
+-
+-.PHONY:all
+-all: trackme_server
+-
+-.PHONY:clean
++# CMAKE generated file: DO NOT EDIT!
++# Generated by "Unix Makefiles" Generator, CMake Version 3.17
++
++# Default target executed when no arguments are given to make.
++default_target: all
++
++.PHONY : default_target
++
++# Allow only one "make -f Makefile2" at a time, but pass parallelism.
++.NOTPARALLEL:
++
++
++#=============================================================================
++# Special targets provided by cmake.
++
++# Disable implicit rules so canonical targets will work.
++.SUFFIXES:
++
++
++# Disable VCS-based implicit rules.
++% : %,v
++
++
++# Disable VCS-based implicit rules.
++% : RCS/%
++
++
++# Disable VCS-based implicit rules.
++% : RCS/%,v
++
++
++# Disable VCS-based implicit rules.
++% : SCCS/s.%
++
++
++# Disable VCS-based implicit rules.
++% : s.%
++
++
++.SUFFIXES: .hpux_make_needs_suffix_list
++
++
++# Command-line flag to silence nested $(MAKE).
++$(VERBOSE)MAKESILENT = -s
++
++# Suppress display of executed commands.
++$(VERBOSE).SILENT:
++
++
++# A target that is always out of date.
++cmake_force:
++
++.PHONY : cmake_force
++
++#=============================================================================
++# Set environment variables for the build.
++
++# The shell in which to execute make rules.
++SHELL = /bin/sh
++
++# The CMake executable.
++CMAKE_COMMAND = /usr/bin/cmake3
++
++# The command to remove a file.
++RM = /usr/bin/cmake3 -E rm -f
++
++# Escaping for special characters.
++EQUALS = =
++
++# The top-level source directory on which CMake was run.
++CMAKE_SOURCE_DIR = /home/fanyu/Downloads/incubator-brpc
++
++# The top-level build directory on which CMake was run.
++CMAKE_BINARY_DIR = /home/fanyu/Downloads/incubator-brpc
++
++#=============================================================================
++# Targets provided globally by CMake.
++
++# Special rule for the target install
++install: preinstall
++	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Install the project..."
++	/usr/bin/cmake3 -P cmake_install.cmake
++.PHONY : install
++
++# Special rule for the target install
++install/fast: preinstall/fast
++	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Install the project..."
++	/usr/bin/cmake3 -P cmake_install.cmake
++.PHONY : install/fast
++
++# Special rule for the target list_install_components
++list_install_components:
++	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Available install components are: \"Unspecified\""
++.PHONY : list_install_components
++
++# Special rule for the target list_install_components
++list_install_components/fast: list_install_components
++
++.PHONY : list_install_components/fast
++
++# Special rule for the target rebuild_cache
++rebuild_cache:
++	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Running CMake to regenerate build system..."
++	/usr/bin/cmake3 --regenerate-during-build -S$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR)
++.PHONY : rebuild_cache
++
++# Special rule for the target rebuild_cache
++rebuild_cache/fast: rebuild_cache
++
++.PHONY : rebuild_cache/fast
++
++# Special rule for the target edit_cache
++edit_cache:
++	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Running CMake cache editor..."
++	/usr/bin/ccmake3 -S$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR)
++.PHONY : edit_cache
++
++# Special rule for the target edit_cache
++edit_cache/fast: edit_cache
++
++.PHONY : edit_cache/fast
++
++# Special rule for the target package_source
++package_source:
++	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Run CPack packaging tool for source..."
++	cd /home/fanyu/Downloads/incubator-brpc && /usr/bin/cpack3 --config ./CPackSourceConfig.cmake /home/fanyu/Downloads/incubator-brpc/CPackSourceConfig.cmake
++.PHONY : package_source
++
++# Special rule for the target package_source
++package_source/fast: package_source
++
++.PHONY : package_source/fast
++
++# Special rule for the target package
++package: preinstall
++	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Run CPack packaging tool..."
++	cd /home/fanyu/Downloads/incubator-brpc && /usr/bin/cpack3 --config ./CPackConfig.cmake
++.PHONY : package
++
++# Special rule for the target package
++package/fast: package
++
++.PHONY : package/fast
++
++# Special rule for the target install/strip
++install/strip: preinstall
++	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Installing the project stripped..."
++	/usr/bin/cmake3 -DCMAKE_INSTALL_DO_STRIP=1 -P cmake_install.cmake
++.PHONY : install/strip
++
++# Special rule for the target install/strip
++install/strip/fast: preinstall/fast
++	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Installing the project stripped..."
++	/usr/bin/cmake3 -DCMAKE_INSTALL_DO_STRIP=1 -P cmake_install.cmake
++.PHONY : install/strip/fast
++
++# Special rule for the target install/local
++install/local: preinstall
++	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Installing only the local directory..."
++	/usr/bin/cmake3 -DCMAKE_INSTALL_LOCAL_ONLY=1 -P cmake_install.cmake
++.PHONY : install/local
++
++# Special rule for the target install/local
++install/local/fast: preinstall/fast
++	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Installing only the local directory..."
++	/usr/bin/cmake3 -DCMAKE_INSTALL_LOCAL_ONLY=1 -P cmake_install.cmake
++.PHONY : install/local/fast
++
++# The main all target
++all: cmake_check_build_system
++	cd /home/fanyu/Downloads/incubator-brpc && $(CMAKE_COMMAND) -E cmake_progress_start /home/fanyu/Downloads/incubator-brpc/CMakeFiles /home/fanyu/Downloads/incubator-brpc/tools/trackme_server/CMakeFiles/progress.marks
++	cd /home/fanyu/Downloads/incubator-brpc && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tools/trackme_server/all
++	$(CMAKE_COMMAND) -E cmake_progress_start /home/fanyu/Downloads/incubator-brpc/CMakeFiles 0
++.PHONY : all
++
++# The main clean target
+ clean:
+-	@echo "Cleaning"
+-	@rm -rf trackme_server $(OBJS)
+-
+-trackme_server:$(OBJS)
+-	@echo "Linking $@"
+-ifeq ($(SYSTEM),Linux)
+-	@$(CXX) $(LIBPATHS) -Xlinker "-(" $^ -Wl,-Bstatic $(STATIC_LINKINGS) -Wl,-Bdynamic -Xlinker "-)" $(DYNAMIC_LINKINGS) -o $@
+-else ifeq ($(SYSTEM),Darwin)
+-	@$(CXX) $(LIBPATHS) $^ $(STATIC_LINKINGS) $(DYNAMIC_LINKINGS) -o $@
+-endif
+-
+-%.o:%.cpp
+-	@echo "Compiling $@"
+-	@$(CXX) -c $(HDRPATHS) $(CXXFLAGS) $< -o $@
+-
+-%.o:%.cc
+-	@echo "Compiling $@"
+-	@$(CXX) -c $(HDRPATHS) $(CXXFLAGS) $< -o $@
++	cd /home/fanyu/Downloads/incubator-brpc && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tools/trackme_server/clean
++.PHONY : clean
++
++# The main clean target
++clean/fast: clean
++
++.PHONY : clean/fast
++
++# Prepare targets for installation.
++preinstall: all
++	cd /home/fanyu/Downloads/incubator-brpc && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tools/trackme_server/preinstall
++.PHONY : preinstall
++
++# Prepare targets for installation.
++preinstall/fast:
++	cd /home/fanyu/Downloads/incubator-brpc && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tools/trackme_server/preinstall
++.PHONY : preinstall/fast
++
++# clear depends
++depend:
++	cd /home/fanyu/Downloads/incubator-brpc && $(CMAKE_COMMAND) -S$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR) --check-build-system CMakeFiles/Makefile.cmake 1
++.PHONY : depend
++
++# Convenience name for target.
++tools/trackme_server/CMakeFiles/trackme_server.dir/rule:
++	cd /home/fanyu/Downloads/incubator-brpc && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 tools/trackme_server/CMakeFiles/trackme_server.dir/rule
++.PHONY : tools/trackme_server/CMakeFiles/trackme_server.dir/rule
++
++# Convenience name for target.
++trackme_server: tools/trackme_server/CMakeFiles/trackme_server.dir/rule
++
++.PHONY : trackme_server
++
++# fast build rule for target.
++trackme_server/fast:
++	cd /home/fanyu/Downloads/incubator-brpc && $(MAKE) $(MAKESILENT) -f tools/trackme_server/CMakeFiles/trackme_server.dir/build.make tools/trackme_server/CMakeFiles/trackme_server.dir/build
++.PHONY : trackme_server/fast
++
++trackme_server.o: trackme_server.cpp.o
++
++.PHONY : trackme_server.o
++
++# target to build an object file
++trackme_server.cpp.o:
++	cd /home/fanyu/Downloads/incubator-brpc && $(MAKE) $(MAKESILENT) -f tools/trackme_server/CMakeFiles/trackme_server.dir/build.make tools/trackme_server/CMakeFiles/trackme_server.dir/trackme_server.cpp.o
++.PHONY : trackme_server.cpp.o
++
++trackme_server.i: trackme_server.cpp.i
++
++.PHONY : trackme_server.i
++
++# target to preprocess a source file
++trackme_server.cpp.i:
++	cd /home/fanyu/Downloads/incubator-brpc && $(MAKE) $(MAKESILENT) -f tools/trackme_server/CMakeFiles/trackme_server.dir/build.make tools/trackme_server/CMakeFiles/trackme_server.dir/trackme_server.cpp.i
++.PHONY : trackme_server.cpp.i
++
++trackme_server.s: trackme_server.cpp.s
++
++.PHONY : trackme_server.s
++
++# target to generate assembly for a file
++trackme_server.cpp.s:
++	cd /home/fanyu/Downloads/incubator-brpc && $(MAKE) $(MAKESILENT) -f tools/trackme_server/CMakeFiles/trackme_server.dir/build.make tools/trackme_server/CMakeFiles/trackme_server.dir/trackme_server.cpp.s
++.PHONY : trackme_server.cpp.s
++
++# Help Target
++help:
++	@echo "The following are some of the valid targets for this Makefile:"
++	@echo "... all (the default if no target is provided)"
++	@echo "... clean"
++	@echo "... depend"
++	@echo "... edit_cache"
++	@echo "... install"
++	@echo "... install/local"
++	@echo "... install/strip"
++	@echo "... list_install_components"
++	@echo "... package"
++	@echo "... package_source"
++	@echo "... rebuild_cache"
++	@echo "... trackme_server"
++	@echo "... trackme_server.o"
++	@echo "... trackme_server.i"
++	@echo "... trackme_server.s"
++.PHONY : help
++
++
++
++#=============================================================================
++# Special targets to cleanup operation of make.
++
++# Special rule to run CMake to check the build system integrity.
++# No rule that depends on this can have commands that come from listfiles
++# because they might be regenerated.
++cmake_check_build_system:
++	cd /home/fanyu/Downloads/incubator-brpc && $(CMAKE_COMMAND) -S$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR) --check-build-system CMakeFiles/Makefile.cmake 0
++.PHONY : cmake_check_build_system
++
