@@ -1320,6 +1320,92 @@ index f067b55..ecdc1c4 100644
  #include <gflags/gflags.h>                  // DECLARE_xxx
  #include <google/protobuf/descriptor.h>
  #include "butil/time.h"                      // gettimeofday_us
+diff --git a/src/brpc/builtin/pprof_service.cpp b/src/brpc/builtin/pprof_service.cpp
+index abc2b8e..64b2d3f 100644
+--- a/src/brpc/builtin/pprof_service.cpp
++++ b/src/brpc/builtin/pprof_service.cpp
+@@ -28,6 +28,7 @@
+ #include "butil/time.h"
+ #include "butil/popen.h"                    // butil::read_command_output
+ #include "butil/process_util.h"             // butil::ReadCommandLine
++#include "butil/logging.h"
+ #include "brpc/log.h"
+ #include "brpc/controller.h"                // Controller
+ #include "brpc/closure_guard.h"             // ClosureGuard
+diff --git a/src/brpc/builtin/prometheus_metrics_service.cpp b/src/brpc/builtin/prometheus_metrics_service.cpp
+index 5eddb1a..1d18ca2 100644
+--- a/src/brpc/builtin/prometheus_metrics_service.cpp
++++ b/src/brpc/builtin/prometheus_metrics_service.cpp
+@@ -25,6 +25,7 @@
+ #include "brpc/builtin/prometheus_metrics_service.h"
+ #include "brpc/builtin/common.h"
+ #include "bvar/bvar.h"
++#include "butil/logging.h"
+ 
+ namespace bvar {
+ DECLARE_int32(bvar_latency_p1);
+diff --git a/src/brpc/builtin/protobufs_service.cpp b/src/brpc/builtin/protobufs_service.cpp
+index 2344e46..a3ec5c4 100644
+--- a/src/brpc/builtin/protobufs_service.cpp
++++ b/src/brpc/builtin/protobufs_service.cpp
+@@ -23,7 +23,7 @@
+ #include "brpc/details/method_status.h"// MethodStatus
+ #include "brpc/builtin/protobufs_service.h"
+ #include "brpc/builtin/common.h"
+-
++#include "butil/logging.h"
+ 
+ namespace brpc {
+ 
+diff --git a/src/brpc/builtin/rpcz_service.cpp b/src/brpc/builtin/rpcz_service.cpp
+index d4374e4..66c7afe 100644
+--- a/src/brpc/builtin/rpcz_service.cpp
++++ b/src/brpc/builtin/rpcz_service.cpp
+@@ -23,6 +23,7 @@
+ #include "butil/string_splitter.h"
+ #include "butil/macros.h"
+ #include "butil/time.h"
++#include "butil/logging.h"
+ #include "brpc/closure_guard.h"        // ClosureGuard
+ #include "brpc/controller.h"           // Controller
+ #include "brpc/builtin/common.h"
+diff --git a/src/brpc/builtin/status_service.cpp b/src/brpc/builtin/status_service.cpp
+index 0a2ca7c..dfc2f69 100644
+--- a/src/brpc/builtin/status_service.cpp
++++ b/src/brpc/builtin/status_service.cpp
+@@ -29,7 +29,7 @@
+ #endif
+ #include "brpc/rtmp.h"                 // RtmpService
+ #include "brpc/builtin/common.h"
+-
++#include "butil/logging.h"
+ 
+ namespace brpc {
+ namespace policy {
+diff --git a/src/brpc/builtin/threads_service.cpp b/src/brpc/builtin/threads_service.cpp
+index 458c1c3..16224da 100644
+--- a/src/brpc/builtin/threads_service.cpp
++++ b/src/brpc/builtin/threads_service.cpp
+@@ -24,6 +24,7 @@
+ #include "brpc/builtin/threads_service.h"
+ #include "brpc/builtin/common.h"
+ #include "butil/string_printf.h"
++#include "butil/logging.h"
+ 
+ namespace brpc {
+ 
+diff --git a/src/brpc/builtin/vlog_service.cpp b/src/brpc/builtin/vlog_service.cpp
+index 2980d0b..1490c17 100644
+--- a/src/brpc/builtin/vlog_service.cpp
++++ b/src/brpc/builtin/vlog_service.cpp
+@@ -18,6 +18,7 @@
+ 
+ #if !BRPC_WITH_GLOG
+ 
++#include "butil/logging.h"
+ #include "brpc/log.h"
+ #include "brpc/controller.h"           // Controller
+ #include "brpc/closure_guard.h"        // ClosureGuard
 diff --git a/src/brpc/channel_base.h b/src/brpc/channel_base.h
 index ed6ff24..132dd8f 100644
 --- a/src/brpc/channel_base.h
