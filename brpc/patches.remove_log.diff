@@ -1428,6 +1428,18 @@ index ed6ff24..132dd8f 100644
          abort();
      };
  
+diff --git a/src/brpc/cluster_recover_policy.cpp b/src/brpc/cluster_recover_policy.cpp
+index d1338f6..1c32a18 100644
+--- a/src/brpc/cluster_recover_policy.cpp
++++ b/src/brpc/cluster_recover_policy.cpp
+@@ -25,6 +25,7 @@
+ #include "brpc/socket.h"
+ #include "butil/fast_rand.h"
+ #include "butil/time.h"
++#include "butil/logging.h"
+ #include "butil/string_splitter.h"
+ 
+ namespace brpc {
 diff --git a/src/brpc/controller.h b/src/brpc/controller.h
 index 69b3f48..8033c4c 100755
 --- a/src/brpc/controller.h
