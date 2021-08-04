@@ -1585,6 +1585,19 @@ index 8eede30..8b1a1c6 100644
          return -1;
      }
      _instance_map[name] = instance;
+diff --git a/src/brpc/load_balancer.cpp b/src/brpc/load_balancer.cpp
+index 18f6a7a..6e6d255 100644
+--- a/src/brpc/load_balancer.cpp
++++ b/src/brpc/load_balancer.cpp
+@@ -19,7 +19,7 @@
+ #include <gflags/gflags.h>
+ #include "brpc/reloadable_flags.h"
+ #include "brpc/load_balancer.h"
+-
++#include "butil/logging.h"
+ 
+ namespace brpc {
+ 
 diff --git a/src/brpc/partition_channel.cpp b/src/brpc/partition_channel.cpp
 index c15fddd..455c919 100644
 --- a/src/brpc/partition_channel.cpp
@@ -1979,6 +1992,18 @@ index a152b16..c612c73 100644
          }
      }
      return raw_msg;
+diff --git a/src/brpc/thrift_service.cpp b/src/brpc/thrift_service.cpp
+index 283ea48..6523f7d 100644
+--- a/src/brpc/thrift_service.cpp
++++ b/src/brpc/thrift_service.cpp
+@@ -19,6 +19,7 @@
+ #include "butil/class_name.h"
+ #include "brpc/thrift_service.h"
+ #include "brpc/details/method_status.h"
++#include "butil/logging.h"
+ 
+ namespace brpc {
+ 
 diff --git a/src/brpc/trackme.cpp b/src/brpc/trackme.cpp
 index b0f56f3..72c1c4a 100644
 --- a/src/brpc/trackme.cpp
