@@ -1270,6 +1270,18 @@ index 0e12751..d094ef2 100644
  
  namespace brpc {
  
+diff --git a/src/brpc/builtin/bad_method_service.cpp b/src/brpc/builtin/bad_method_service.cpp
+index 346b68d..d5c093d 100644
+--- a/src/brpc/builtin/bad_method_service.cpp
++++ b/src/brpc/builtin/bad_method_service.cpp
+@@ -17,6 +17,7 @@
+ 
+ 
+ #include <ostream>
++#include <sstream>
+ #include <vector>
+ #include <google/protobuf/descriptor.h>
+ 
 diff --git a/src/brpc/channel_base.h b/src/brpc/channel_base.h
 index ed6ff24..132dd8f 100644
 --- a/src/brpc/channel_base.h
@@ -1292,6 +1304,18 @@ index ed6ff24..132dd8f 100644
          abort();
      };
  
+diff --git a/src/brpc/controller.h b/src/brpc/controller.h
+index 69b3f48..8033c4c 100755
+--- a/src/brpc/controller.h
++++ b/src/brpc/controller.h
+@@ -27,6 +27,7 @@
+ #include "bthread/errno.h"                     // Redefine errno
+ #include "butil/endpoint.h"                    // butil::EndPoint
+ #include "butil/iobuf.h"                       // butil::IOBuf
++#include "butil/time.h"                        // butil::cpuwide_time_us
+ #include "bthread/types.h"                     // bthread_id_t
+ #include "brpc/options.pb.h"                   // CompressType
+ #include "brpc/errno.pb.h"                     // error code
 diff --git a/src/brpc/details/controller_private_accessor.h b/src/brpc/details/controller_private_accessor.h
 index 1aa567e..7de9524 100644
 --- a/src/brpc/details/controller_private_accessor.h
