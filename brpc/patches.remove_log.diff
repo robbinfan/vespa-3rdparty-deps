@@ -1295,6 +1295,18 @@ index 98973b9..06a4a44 100644
  
  namespace brpc {
  
+diff --git a/src/brpc/builtin/hotspots_service.cpp b/src/brpc/builtin/hotspots_service.cpp
+index 5961274..daab4b1 100644
+--- a/src/brpc/builtin/hotspots_service.cpp
++++ b/src/brpc/builtin/hotspots_service.cpp
+@@ -23,6 +23,7 @@
+ #include "butil/file_util.h"                     // butil::FilePath
+ #include "butil/popen.h"                         // butil::read_command_output
+ #include "butil/fd_guard.h"                      // butil::fd_guard
++#include "butil/logging.h"
+ #include "brpc/log.h"
+ #include "brpc/controller.h"
+ #include "brpc/server.h"
 diff --git a/src/brpc/channel_base.h b/src/brpc/channel_base.h
 index ed6ff24..132dd8f 100644
 --- a/src/brpc/channel_base.h
