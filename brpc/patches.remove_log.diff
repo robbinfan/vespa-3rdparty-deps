@@ -1786,17 +1786,37 @@ index 8574723..f185569 100644
      }
      const int id = _last_sent_stream_id;
 diff --git a/src/brpc/policy/http_rpc_protocol.cpp b/src/brpc/policy/http_rpc_protocol.cpp
-index 450e28b..7a739d8 100644
+index 450e28b..76180f2 100644
 --- a/src/brpc/policy/http_rpc_protocol.cpp
 +++ b/src/brpc/policy/http_rpc_protocol.cpp
-@@ -25,6 +25,7 @@
- #include "butil/string_splitter.h"                  // StringMultiSplitter
+@@ -26,6 +26,7 @@
  #include "butil/string_printf.h"
  #include "butil/time.h"
-+#include "butil/logging.h"
  #include "butil/sys_byteorder.h"
++#include "butil/logging.h"
  #include "brpc/compress.h"
  #include "brpc/errno.pb.h"                     // ENOSERVICE, ENOMETHOD
+ #include "brpc/controller.h"                   // Controller
+@@ -748,16 +749,9 @@ HttpResponseSender::~HttpResponseSender() {
+                 cntl->SetFailed(ERESPONSE, "Fail to serialize %s", res->GetTypeName().c_str());
+             }
+         } else {
+-            std::string err;
+-            json2pb::Pb2JsonOptions opt;
+-            opt.bytes_to_base64 = cntl->has_pb_bytes_to_base64();
+-            opt.jsonify_empty_array = cntl->has_pb_jsonify_empty_array();
+-            opt.always_print_primitive_fields = cntl->has_always_print_primitive_fields();
+-            opt.enum_option = (FLAGS_pb_enum_as_number
+-                               ? json2pb::OUTPUT_ENUM_BY_NUMBER
+-                               : json2pb::OUTPUT_ENUM_BY_NAME);
+-            if (!json2pb::ProtoMessageToJson(*res, &wrapper, opt, &err)) {
+-                cntl->SetFailed(ERESPONSE, "Fail to convert response to json, %s", err.c_str());
++            auto status = json2pb::ProtoMessageToJsonWithWellKnownType(*res, &wrapper);
++            if (!status.ok()) {
++                cntl->SetFailed(ERESPONSE, "Fail to convert response to json, %s", status.message().data());
+             }
+         }
+     }
 diff --git a/src/brpc/policy/hulu_pbrpc_protocol.cpp b/src/brpc/policy/hulu_pbrpc_protocol.cpp
 index 50660a0..969eab9 100644
 --- a/src/brpc/policy/hulu_pbrpc_protocol.cpp
@@ -3962,6 +3982,95 @@ index a5780bf..2ebf306 100644
      }
      
      ~WindowBase() {
+diff --git a/src/json2pb/pb_to_json.cpp b/src/json2pb/pb_to_json.cpp
+index 704f963..621ec3e 100644
+--- a/src/json2pb/pb_to_json.cpp
++++ b/src/json2pb/pb_to_json.cpp
+@@ -22,6 +22,8 @@
+ #include <sys/time.h>
+ #include <time.h>
+ #include <google/protobuf/descriptor.h>
++#include <google/protobuf/util/json_util.h>
++#include <google/protobuf/util/type_resolver_util.h>
+ #include "butil/base64.h"
+ #include "zero_copy_stream_writer.h"
+ #include "encode_decode.h"
+@@ -333,4 +335,52 @@ bool ProtoMessageToJson(const google::protobuf::Message& message,
+                         std::string* error) {
+     return ProtoMessageToJson(message, stream, Pb2JsonOptions(), error);
+ }
++
++// take from protobuf json_util.cc
++namespace {
++const char* kTypeUrlPrefix = "type.googleapis.com";
++google::protobuf::util::TypeResolver* generated_type_resolver_ = NULL;
++google::protobuf::internal::once_flag generated_type_resolver_init_;
++
++std::string GetTypeUrl(const google::protobuf::Message& message) {
++  return std::string(kTypeUrlPrefix) + "/" +
++         message.GetDescriptor()->full_name();
++}
++
++void DeleteGeneratedTypeResolver() { delete generated_type_resolver_; }
++
++void InitGeneratedTypeResolver() {
++  generated_type_resolver_ = google::protobuf::util::NewTypeResolverForDescriptorPool(
++      kTypeUrlPrefix, google::protobuf::DescriptorPool::generated_pool());
++  ::google::protobuf::internal::OnShutdown(&DeleteGeneratedTypeResolver);
++}
++
++google::protobuf::util::TypeResolver* GetGeneratedTypeResolver() {
++  google::protobuf::internal::call_once(generated_type_resolver_init_,
++                                        InitGeneratedTypeResolver);
++  return generated_type_resolver_;
++}
++}  // namespace
++
++google::protobuf::util::Status ProtoMessageToJsonWithWellKnownType(const google::protobuf::Message& message,
++                                                                   google::protobuf::io::ZeroCopyOutputStream *json)
++{
++    const google::protobuf::DescriptorPool* pool = message.GetDescriptor()->file()->pool();
++    google::protobuf::util::TypeResolver* resolver =
++        pool == google::protobuf::DescriptorPool::generated_pool()
++            ? GetGeneratedTypeResolver()
++            : google::protobuf::util::NewTypeResolverForDescriptorPool(kTypeUrlPrefix, pool);
++
++    std::string binary_input = std::move(message.SerializeAsString());
++    google::protobuf::io::ArrayInputStream input_stream(binary_input.data(), binary_input.size());
++
++    google::protobuf::util::Status result =
++        google::protobuf::util::BinaryToJsonStream(resolver, GetTypeUrl(message),
++                           &input_stream, json, google::protobuf::util::JsonPrintOptions());
++    if (pool != google::protobuf::DescriptorPool::generated_pool()) {
++        delete resolver;
++    }
++    return result;
++}
++
+ } // namespace json2pb
+diff --git a/src/json2pb/pb_to_json.h b/src/json2pb/pb_to_json.h
+index 3fbc6c4..2b71f03 100644
+--- a/src/json2pb/pb_to_json.h
++++ b/src/json2pb/pb_to_json.h
+@@ -23,6 +23,7 @@
+ #include <string>
+ #include <google/protobuf/message.h>
+ #include <google/protobuf/io/zero_copy_stream.h> // ZeroCopyOutputStream
++#include <google/protobuf/stubs/status.h>
+ 
+ namespace json2pb {
+ 
+@@ -86,6 +87,10 @@ bool ProtoMessageToJson(const google::protobuf::Message& message,
+ bool ProtoMessageToJson(const google::protobuf::Message& message,
+                         google::protobuf::io::ZeroCopyOutputStream* json,
+                         std::string* error = NULL);
++
++google::protobuf::util::Status ProtoMessageToJsonWithWellKnownType(const google::protobuf::Message& message,
++                                                                   google::protobuf::io::ZeroCopyOutputStream *json);
++
+ } // namespace json2pb
+ 
+ #endif // BRPC_JSON2PB_PB_TO_JSON_H
 diff --git a/tools/parallel_http/Makefile b/tools/parallel_http/Makefile
 index 0336c24..b857edd 100644
 --- a/tools/parallel_http/Makefile
