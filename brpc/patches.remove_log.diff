@@ -4071,6 +4071,16 @@ index 3fbc6c4..2b71f03 100644
  } // namespace json2pb
  
  #endif // BRPC_JSON2PB_PB_TO_JSON_H
+diff --git a/tools/parallel_http/CMakeLists.txt b/tools/parallel_http/CMakeLists.txt
+index 457d600..9f80968 100644
+--- a/tools/parallel_http/CMakeLists.txt
++++ b/tools/parallel_http/CMakeLists.txt
+@@ -17,3 +17,5 @@
+ 
+ add_executable(parallel_http parallel_http.cpp)
+ target_link_libraries(parallel_http brpc-static ${DYNAMIC_LIB})
++install(TARGETS parallel_http
++        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 diff --git a/tools/parallel_http/Makefile b/tools/parallel_http/Makefile
 index 0336c24..b857edd 100644
 --- a/tools/parallel_http/Makefile
@@ -4399,6 +4409,16 @@ index 0336c24..b857edd 100644
 +	cd /home/fanyu/Downloads/incubator-brpc && $(CMAKE_COMMAND) -S$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR) --check-build-system CMakeFiles/Makefile.cmake 0
 +.PHONY : cmake_check_build_system
 +
+diff --git a/tools/rpc_press/CMakeLists.txt b/tools/rpc_press/CMakeLists.txt
+index e50e296..f082307 100644
+--- a/tools/rpc_press/CMakeLists.txt
++++ b/tools/rpc_press/CMakeLists.txt
+@@ -18,3 +18,5 @@
+ file(GLOB SOURCES "${PROJECT_SOURCE_DIR}/tools/rpc_press/*.cpp")
+ add_executable(rpc_press ${SOURCES})
+ target_link_libraries(rpc_press brpc-static ${DYNAMIC_LIB})
++install(TARGETS rpc_press
++        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 diff --git a/tools/rpc_press/Makefile b/tools/rpc_press/Makefile
 index 29d52c7..9e94e87 100644
 --- a/tools/rpc_press/Makefile
