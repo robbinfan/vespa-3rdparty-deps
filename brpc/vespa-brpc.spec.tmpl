@@ -92,6 +92,7 @@ rm -rf $RPM_BUILD_ROOT
 
 %files
 %{_libdir}/libbrpc.so
+%{_bindir}/*
 
 %files devel
 %{_includedir}/*
@@ -99,5 +100,6 @@ rm -rf $RPM_BUILD_ROOT
 
 %files static
 %{_libdir}/libbrpc.a
+%{_bindir}/*
 
 %changelog
