@@ -256,122 +256,6 @@ index 2fad84b..e6733ba 100644
  
  namespace brpc {
  
-diff --git a/src/brpc/details/method_status.cpp b/src/brpc/details/method_status.cpp
-index faf6449..ed865f4 100644
---- a/src/brpc/details/method_status.cpp
-+++ b/src/brpc/details/method_status.cpp
-@@ -40,6 +40,8 @@ MethodStatus::MethodStatus()
-     : _nconcurrency(0)
-     , _nconcurrency_bvar(cast_int, &_nconcurrency)
-     , _eps_bvar(&_nerror_bvar)
-+    , _rx_bvar(&_nrx_bvar)  
-+    , _tx_bvar(&_ntx_bvar)  
-     , _max_concurrency_bvar(cast_cl, &_cl)
- {
- }
-@@ -54,6 +56,18 @@ int MethodStatus::Expose(const butil::StringPiece& prefix) {
-     if (_nerror_bvar.expose_as(prefix, "error") != 0) {
-         return -1;
-     }
-+    if (_nrx_bvar.expose_as(prefix, "rx") != 0) {
-+        return -1;
-+    }
-+    if (_rx_bvar.expose_as(prefix, "rx_rate") != 0) {
-+        return -1;
-+    }
-+    if (_ntx_bvar.expose_as(prefix, "tx") != 0) {
-+        return -1;
-+    }
-+    if (_tx_bvar.expose_as(prefix, "tx_rate") != 0) {
-+        return -1;
-+    }
-     if (_eps_bvar.expose_as(prefix, "eps") != 0) {
-         return -1;
-     }
-@@ -112,6 +126,16 @@ void MethodStatus::Describe(
-     OutputValue(os, "eps: ", _eps_bvar.name(),
-                 _eps_bvar.get_value(1), options, false);
- 
-+    // traffic
-+    OutputValue(os, "rx: ", _nrx_bvar.name(), _nrx_bvar.get_value(),
-+                options, false);
-+    OutputValue(os, "rx_rate: ", _rx_bvar.name(), _rx_bvar.get_value(1),
-+                options, false);
-+    OutputValue(os, "tx: ", _ntx_bvar.name(), _ntx_bvar.get_value(),
-+                options, false);
-+    OutputValue(os, "tx_rate: ", _tx_bvar.name(), _tx_bvar.get_value(1),
-+                options, false);
-+
-     // latencies
-     OutputValue(os, "latency: ", _latency_rec.latency_name(),
-                 _latency_rec.latency(), options, false);
-@@ -151,7 +175,7 @@ void MethodStatus::SetConcurrencyLimiter(ConcurrencyLimiter* cl) {
- 
- ConcurrencyRemover::~ConcurrencyRemover() {
-     if (_status) {
--        _status->OnResponded(_c->ErrorCode(), butil::cpuwide_time_us() - _received_us);
-+        _status->OnResponded(_c->ErrorCode(), butil::cpuwide_time_us() - _received_us, static_cast<int64_t>(_c->response_attachment().size()));
-         _status = NULL;
-     }
-     ServerPrivateAccessor(_c->server()).RemoveConcurrency(_c);
-diff --git a/src/brpc/details/method_status.h b/src/brpc/details/method_status.h
-index 094e895..6ca66fb 100644
---- a/src/brpc/details/method_status.h
-+++ b/src/brpc/details/method_status.h
-@@ -39,6 +39,7 @@ public:
-     // Returns false when the method is overloaded. If rejected_cc is not
-     // NULL, it's set with the rejected concurrency.
-     bool OnRequested(int* rejected_cc = NULL);
-+    bool OnRequested(int* rejected_cc, int64_t rx);
- 
-     // Call this when the method just finished.
-     // `error_code' : The error code obtained from the controller. Equal to 
-@@ -47,6 +48,7 @@ public:
-     // be measured in this utility class as well, but the callsite often
-     // did the time keeping and the cost is better saved. 
-     void OnResponded(int error_code, int64_t latency_us);
-+    void OnResponded(int error_code, int64_t latency_us, int64_t tx);
- 
-     // Expose internal vars.
-     // Return 0 on success, -1 otherwise.
-@@ -69,9 +71,13 @@ friend class Server;
-     std::unique_ptr<ConcurrencyLimiter> _cl;
-     butil::atomic<int> _nconcurrency;
-     bvar::Adder<int64_t>  _nerror_bvar;
-+    bvar::Adder<int64_t>  _nrx_bvar;
-+    bvar::Adder<int64_t>  _ntx_bvar;
-     bvar::LatencyRecorder _latency_rec;
-     bvar::PassiveStatus<int>  _nconcurrency_bvar;
-     bvar::PerSecond<bvar::Adder<int64_t>> _eps_bvar;
-+    bvar::PerSecond<bvar::Adder<int64_t>> _rx_bvar;
-+    bvar::PerSecond<bvar::Adder<int64_t>> _tx_bvar;
-     bvar::PassiveStatus<int32_t> _max_concurrency_bvar;
- };
- 
-@@ -100,6 +106,11 @@ inline bool MethodStatus::OnRequested(int* rejected_cc) {
-     return false;
- }
- 
-+inline bool MethodStatus::OnRequested(int* rejected_cc, int64_t rx) {
-+    _nrx_bvar << rx;
-+    OnRequested(rejected_cc);
-+}
-+
- inline void MethodStatus::OnResponded(int error_code, int64_t latency) {
-     _nconcurrency.fetch_sub(1, butil::memory_order_relaxed);
-     if (0 == error_code) {
-@@ -112,6 +123,11 @@ inline void MethodStatus::OnResponded(int error_code, int64_t latency) {
-     }
- }
- 
-+inline void MethodStatus::OnResponded(int error_code, int64_t latency, int64_t tx) {
-+    _ntx_bvar << tx;
-+    OnResponded(error_code, latency);
-+}
-+
- } // namespace brpc
- 
- #endif  //BRPC_METHOD_STATUS_H
 diff --git a/src/brpc/details/server_private_accessor.h b/src/brpc/details/server_private_accessor.h
 index aacf283..c2d84dd 100644
 --- a/src/brpc/details/server_private_accessor.h
@@ -643,7 +527,7 @@ index 8574723..f185569 100644
      }
      const int id = _last_sent_stream_id;
 diff --git a/src/brpc/policy/http_rpc_protocol.cpp b/src/brpc/policy/http_rpc_protocol.cpp
-index 450e28b..070c046 100644
+index 450e28b..76180f2 100644
 --- a/src/brpc/policy/http_rpc_protocol.cpp
 +++ b/src/brpc/policy/http_rpc_protocol.cpp
 @@ -26,6 +26,7 @@
@@ -674,15 +558,6 @@ index 450e28b..070c046 100644
              }
          }
      }
-@@ -1346,7 +1340,7 @@ void ProcessHttpRequest(InputMessageBase *msg) {
-     resp_sender.set_method_status(method_status);
-     if (method_status) {
-         int rejected_cc = 0;
--        if (!method_status->OnRequested(&rejected_cc)) {
-+        if (!method_status->OnRequested(&rejected_cc, static_cast<int64_t>(req_body.size()))) {
-             cntl->SetFailed(ELIMIT, "Rejected by %s's ConcurrencyLimiter, concurrency=%d",
-                             sp->method->full_name().c_str(), rejected_cc);
-             return;
 diff --git a/src/brpc/policy/hulu_pbrpc_protocol.cpp b/src/brpc/policy/hulu_pbrpc_protocol.cpp
 index 50660a0..969eab9 100644
 --- a/src/brpc/policy/hulu_pbrpc_protocol.cpp
