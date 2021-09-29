@@ -754,6 +754,19 @@ index 1e6add5..9a4080f 100644
  #include "brpc/socket.h"
  #include "brpc/policy/weighted_round_robin_load_balancer.h"
  #include "butil/strings/string_number_conversions.h"
+diff --git a/src/brpc/protocol.cpp b/src/brpc/protocol.cpp
+index 11297ea..c998edb 100644
+--- a/src/brpc/protocol.cpp
++++ b/src/brpc/protocol.cpp
+@@ -203,7 +203,7 @@ BUTIL_FORCE_INLINE bool ParsePbFromZeroCopyStreamInlined(
+     // According to source code of pb, SetTotalBytesLimit is not a simple set,
+     // avoid calling the function when the limit is definitely unreached.
+     if (PB_TOTAL_BYETS_LIMITS < FLAGS_max_body_size) {
+-        decoder.SetTotalBytesLimit(INT_MAX, -1);
++        decoder.SetTotalBytesLimit(INT_MAX);
+     }
+     return msg->ParseFromCodedStream(&decoder) && decoder.ConsumedEntireMessage();
+ }
 diff --git a/src/brpc/protocol.h b/src/brpc/protocol.h
 index c1e0602..f8fcea7 100755
 --- a/src/brpc/protocol.h
