@@ -28,7 +28,7 @@ Patch0:         patches.remove_log.diff
 %if 0%{?el7}
 BuildRequires: gflags-devel >= 2.1
 BuildRequires: leveldb-devel
-BuildRequires: vespa-protobuf-devel >= 3.17.3-2.el7
+BuildRequires: vespa-protobuf-devel >= 3.18.0-1.el7
 BuildRequires: vespa-openssl-devel >= 1.1.1k-1
 BuildRequires: cmake3
 %define _cmake_prog cmake3
@@ -49,7 +49,7 @@ An industrial-grade RPC framework used throughout Baidu, with 1,000,000+ instanc
 Summary: The %{name} headers and shared development libraries
 Requires: %{name} = %{version}-%{release}
 Requires: gflags-devel
-Requires: vespa-protobuf-devel >= 3.17.3-2.el7
+Requires: vespa-protobuf-devel >= 3.18.0-1.el7
 Requires: vespa-openssl-devel >= 1.1.1k-1
 
 %description devel
