@@ -6,6 +6,15 @@
 # Force special prefix for Vespa
 %define _prefix /opt/vespa-deps
 
+# Only strip debug info
+%global _find_debuginfo_opts -g
+
+# Don't provide shared library or pkgconfig
+%global __provides_exclude ^(lib.*\\.so\\.[0-9.]*\\([A-Za-z._0-9]*\\)\\(64bit\\)|pkgconfig\\(.*)$
+
+# Exclude automated requires for libraries in /opt/vespa-deps/lib64.
+%global __requires_exclude ^lib(protobuf|protoc)\\.so\\.[0-9.]*\\([A-Za-z._0-9]*\\)\\(64bit\\)$
+
 # Version
 %define ver_major _TMPL_VER_MAJOR
 %define ver_minor _TMPL_VER_MINOR
@@ -27,13 +36,13 @@ BuildRequires: zlib-devel
 BuildRequires: gcc10-c++%{?_isa}
 %define _configure_args CC=gcc10-gcc CXX=gcc10-g++ CC_FOR_BUILD=gcc10-gcc CXX_FOR_BUILD=gcc10-g++
 %else
-%define _devtoolset_enable /opt/rh/devtoolset-9/enable
-BuildRequires: devtoolset-9-gcc-c++%{?_isa}
+%define _devtoolset_enable /opt/rh/devtoolset-10/enable
+BuildRequires: devtoolset-10-gcc-c++%{?_isa}
 %endif
 %endif
 %if 0%{?el8}
-%define _devtoolset_enable /opt/rh/gcc-toolset-9/enable
-BuildRequires: gcc-toolset-9-gcc-c++
+%define _devtoolset_enable /opt/rh/gcc-toolset-10/enable
+BuildRequires: gcc-toolset-10-gcc-c++
 BuildRequires: make
 %endif
 %if 0%{?fedora}
@@ -41,12 +50,16 @@ BuildRequires: gcc-c++
 BuildRequires: make
 %endif
 
+%global _vespa_3rdparty_deps_packaging_notice \
+See https://github.com/vespa-engine/vespa-3rdparty-deps for details \
+about packaging.
+
 %description
 Protocol Buffers (a.k.a., protobuf) are Google's language-neutral,
 platform-neutral, extensible mechanism for serializing structured data.
 
 This package contains protobuf runtime library for C++.
-
+%{_vespa_3rdparty_deps_packaging_notice}
 %package devel
 Summary:        Protocol Buffers for C++ development
 Requires:       %{name} = %{version}-%{release}
@@ -54,7 +67,7 @@ Requires:      zlib-devel
 
 %description devel
 This package contains protobuf compiler for C++ and C++ headers and libraries.
-
+%{_vespa_3rdparty_deps_packaging_notice}
 %prep
 %setup -q -n protobuf-%{version}
 %if 0%{?el7} && 0%{?amzn2}
@@ -80,7 +93,7 @@ cd build
 %define _unpackaged_files_terminate_build 0
 
 %files
-%{_libdir}/libprotobuf.so.*
+%{_libdir}/libprotobuf.so.30*
 %license LICENSE
 
 %files devel
@@ -88,7 +101,7 @@ cd build
 %{_includedir}/google/protobuf/
 %{_libdir}/libprotobuf.so
 %{_libdir}/libprotoc.so
-%{_libdir}/libprotoc.so.*
+%{_libdir}/libprotoc.so.30*
 %{_bindir}/protoc
 %license LICENSE
 

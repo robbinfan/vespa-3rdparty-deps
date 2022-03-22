@@ -1,9 +1,9 @@
-# Copyright Verizon Media. Licensed under the terms of the Apache 2.0 license. See LICENSE in the project root.
+# Copyright Yahoo. Licensed under the terms of the Apache 2.0 license. See LICENSE in the project root.
 TOP = $(realpath $(dir $(lastword $(MAKEFILE_LIST))))
 
 # Version
-MAJOR=20190801
-MAJOR_LONG=2019-08-01
+MAJOR=20210801
+MAJOR_LONG=2021-08-01
 RELEASE=2
 
 RPMTOPDIR=$(TOP)/rpmbuild

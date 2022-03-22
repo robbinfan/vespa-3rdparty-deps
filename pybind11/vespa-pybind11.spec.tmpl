@@ -1,4 +1,4 @@
-# Copyright Verizon Media. Licensed under the terms of the Apache 2.0 license. See LICENSE in the project root.
+# Copyright Yahoo. Licensed under the terms of the Apache 2.0 license. See LICENSE in the project root.
 
 # Disable build id note requirement for now
 %undefine _missing_build_ids_terminate_build
@@ -22,18 +22,21 @@ Release:        %{ver_release}%{?dist}
 License:        BSD
 URL:            https://github.com/pybind/pybind11
 Source0:        https://github.com/pybind/pybind11/archive/refs/tags/v%{version}.tar.gz
+Patch0:         patches.use-newer-catch.diff
 
 %if 0%{?el7}
 %if 0%{?amzn2}
 BuildRequires: gcc10-c++%{?_isa}
 %define _toolset_compiler_cmake_args -DCMAKE_C_COMPILER=gcc10-gcc -DCMAKE_CXX_COMPILER=gcc10-g++
 %else
-%define _devtoolset_enable /opt/rh/devtoolset-9/enable
-BuildRequires: devtoolset-9-gcc-c++%{?_isa}
+%define _devtoolset_enable /opt/rh/devtoolset-10/enable
+BuildRequires: devtoolset-10-gcc-c++%{?_isa}
+BuildRequires: devtoolset-10-binutils
 %endif
 BuildRequires: cmake3
 %define _cmake_prog cmake3
 BuildRequires: vespa-boost-devel >= 1.59.0-6%{dist}
+%define _cmake_env CXXFLAGS=-I%{_prefix}/include
 %if 0%{?amzn2}
 BuildRequires: python3-pytest
 %else
@@ -43,9 +46,18 @@ BuildRequires: python36-scipy
 %define _cmake_download_catch -DDOWNLOAD_CATCH=ON
 %endif
 %if 0%{?el8}
-%define _devtoolset_enable /opt/rh/gcc-toolset-9/enable
-BuildRequires: gcc-toolset-9-gcc-c++
+%define _devtoolset_enable /opt/rh/gcc-toolset-10/enable
+BuildRequires: gcc-toolset-10-gcc-c++
+BuildRequires: gcc-toolset-10-binutils
 BuildRequires: make
+BuildRequires: cmake
+BuildRequires: boost-devel
+BuildRequires: python3-pytest
+BuildRequires: python3-scipy
+%define _cmake_download_catch -DDOWNLOAD_CATCH=ON
+%endif
+%if 0%{?el9}
+BuildRequires: gcc-c++
 BuildRequires: cmake
 BuildRequires: boost-devel
 BuildRequires: python3-pytest
@@ -54,7 +66,6 @@ BuildRequires: python3-scipy
 %endif
 %if 0%{?fedora}
 BuildRequires: gcc-c++
-BuildRequires: make
 BuildRequires: cmake
 BuildRequires: boost-devel
 BuildRequires: python3-pytest
@@ -64,6 +75,7 @@ BuildRequires: catch-devel
 BuildRequires: python3-devel
 BuildRequires: python3-setuptools
 BuildRequires: eigen3-devel
+BuildRequires: make
 
 %global _vespa_3rdparty_deps_packaging_notice \
 See https://github.com/vespa-engine/vespa-3rdparty-deps for details \
@@ -90,6 +102,9 @@ python3 -m pip install --user --upgrade pytest
 python3 -m pip install --user scipy
 %endif
 %setup -q -n pybind11-%{version}
+%if 0%{?el9} || 0%{?fedora}
+%patch0 -p0
+%endif
 
 %build
 echo building at $(pwd)
@@ -103,7 +118,7 @@ echo includedir is %{_includedir}
 mkdir build
 cd build
 
-%{?_cmake_prog}%{!?_cmake_prog:cmake} \
+env %{?_cmake_env} %{?_cmake_prog}%{!?_cmake_prog:cmake} \
   -DCMAKE_PREFIX_PATH=${_prefix} \
   -DCMAKE_INSTALL_PREFIX=%{_prefix} \
   -DCMAKE_INSTALL_RPATH=%{_libdir}  \

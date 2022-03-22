@@ -1,4 +1,4 @@
-# Copyright Verizon Media. Licensed under the terms of the Apache 2.0 license. See LICENSE in the project root.
+# Copyright Yahoo. Licensed under the terms of the Apache 2.0 license. See LICENSE in the project root.
 TOP = $(realpath $(dir $(lastword $(MAKEFILE_LIST))))
 
 # Version
@@ -22,10 +22,14 @@ srpm:
 	mkdir -p $(SPECDIR) $(SOURCEDIR)
 	rm -rf $(SRCTMPBASE)
 	mkdir -p $(SRCTMPBASE)
-	cd $(SRCTMPBASE) && git clone https://github.com/microsoft/onnxruntime
+	cd $(SRCTMPBASE) && git clone https://github.com/microsoft/onnxruntime.git onnxruntime
 	cd $(SRCTMP_VENDOR) && git checkout v$(VERSION)
+ifdef SUBMODULE_CHECKOUT_SCRIPT
+	cd $(SRCTMP_VENDOR) && $(SUBMODULE_CHECKOUT_SCRIPT)
+else
 	cd $(SRCTMP_VENDOR) && git submodule sync --recursive
 	cd $(SRCTMP_VENDOR) && git submodule update --init --recursive
+endif
 	mkdir -p $(SRCTMP)
 	cd $(SRCTMP_VENDOR) && git archive --format=tar HEAD | tar -C $(SRCTMP) -xf -
 	set -e; cd $(SRCTMP_VENDOR) && git submodule status --recursive | cut -d ' ' -f 3 | while read sm_path; do mkdir -p $(SRCTMP)/$$sm_path; ( cd $$sm_path && git archive --format=tar HEAD | tar -C $(SRCTMP)/$$sm_path -xf -); done
