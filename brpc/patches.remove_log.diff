@@ -37,7 +37,7 @@ index 98973b9..06a4a44 100644
  namespace brpc {
  
 diff --git a/src/brpc/builtin/hotspots_service.cpp b/src/brpc/builtin/hotspots_service.cpp
-index 5961274..daab4b1 100644
+index 9d53881..0909996 100644
 --- a/src/brpc/builtin/hotspots_service.cpp
 +++ b/src/brpc/builtin/hotspots_service.cpp
 @@ -23,6 +23,7 @@
@@ -182,10 +182,10 @@ index d1338f6..1c32a18 100644
  
  namespace brpc {
 diff --git a/src/brpc/controller.h b/src/brpc/controller.h
-index 69b3f48..8033c4c 100755
+index e4e3533..c1ddd17 100755
 --- a/src/brpc/controller.h
 +++ b/src/brpc/controller.h
-@@ -27,6 +27,7 @@
+@@ -28,6 +28,7 @@
  #include "bthread/errno.h"                     // Redefine errno
  #include "butil/endpoint.h"                    // butil::EndPoint
  #include "butil/iobuf.h"                       // butil::IOBuf
@@ -194,7 +194,7 @@ index 69b3f48..8033c4c 100755
  #include "brpc/options.pb.h"                   // CompressType
  #include "brpc/errno.pb.h"                     // error code
 diff --git a/src/brpc/details/controller_private_accessor.h b/src/brpc/details/controller_private_accessor.h
-index 1aa567e..7de9524 100644
+index 362c8f0..7319f19 100644
 --- a/src/brpc/details/controller_private_accessor.h
 +++ b/src/brpc/details/controller_private_accessor.h
 @@ -58,7 +58,7 @@ public:
@@ -232,7 +232,7 @@ index 43a2d9e..7878b50 100644
  namespace brpc {
  
 diff --git a/src/brpc/details/http_message.cpp b/src/brpc/details/http_message.cpp
-index 96bb326..a262e72 100644
+index d9c590c..130f640 100644
 --- a/src/brpc/details/http_message.cpp
 +++ b/src/brpc/details/http_message.cpp
 @@ -27,6 +27,7 @@
@@ -390,7 +390,7 @@ index 27ea3ec..23804e4 100644
  namespace brpc {
  
 diff --git a/src/brpc/policy/auto_concurrency_limiter.cpp b/src/brpc/policy/auto_concurrency_limiter.cpp
-index 628fe16..fff631a 100644
+index 5eafbd7..7707f92 100644
 --- a/src/brpc/policy/auto_concurrency_limiter.cpp
 +++ b/src/brpc/policy/auto_concurrency_limiter.cpp
 @@ -19,6 +19,7 @@
@@ -399,8 +399,8 @@ index 628fe16..fff631a 100644
  #include "brpc/policy/auto_concurrency_limiter.h"
 +#include "butil/logging.h"
  
- namespace brpc {
- namespace policy {
+ namespace bthread {
+ 
 diff --git a/src/brpc/policy/consistent_hashing_load_balancer.cpp b/src/brpc/policy/consistent_hashing_load_balancer.cpp
 index fd22380..07ba6da 100644
 --- a/src/brpc/policy/consistent_hashing_load_balancer.cpp
@@ -438,19 +438,19 @@ index f4b2345..bf05d45 100644
  #include "brpc/channel.h"
  #include "brpc/policy/file_naming_service.h"
 diff --git a/src/brpc/policy/discovery_naming_service.cpp b/src/brpc/policy/discovery_naming_service.cpp
-index 7efa536..e0a1012 100644
+index a6caf4d..fca55d1 100644
 --- a/src/brpc/policy/discovery_naming_service.cpp
 +++ b/src/brpc/policy/discovery_naming_service.cpp
-@@ -22,6 +22,7 @@
- #include "butil/third_party/rapidjson/writer.h"
+@@ -23,6 +23,7 @@
  #include "butil/string_printf.h"
+ #include "butil/strings/string_split.h"
  #include "butil/fast_rand.h"
 +#include "butil/logging.h"
  #include "bthread/bthread.h"
  #include "brpc/channel.h"
  #include "brpc/controller.h"
 diff --git a/src/brpc/policy/domain_naming_service.cpp b/src/brpc/policy/domain_naming_service.cpp
-index aea943c..dc9c8a4 100644
+index 6e1d975..32aebc7 100644
 --- a/src/brpc/policy/domain_naming_service.cpp
 +++ b/src/brpc/policy/domain_naming_service.cpp
 @@ -21,6 +21,7 @@
@@ -527,10 +527,10 @@ index 8574723..f185569 100644
      }
      const int id = _last_sent_stream_id;
 diff --git a/src/brpc/policy/http_rpc_protocol.cpp b/src/brpc/policy/http_rpc_protocol.cpp
-index 450e28b..76180f2 100644
+index 7bd06ec..bce5b7d 100644
 --- a/src/brpc/policy/http_rpc_protocol.cpp
 +++ b/src/brpc/policy/http_rpc_protocol.cpp
-@@ -26,6 +26,7 @@
+@@ -27,6 +27,7 @@
  #include "butil/string_printf.h"
  #include "butil/time.h"
  #include "butil/sys_byteorder.h"
@@ -538,7 +538,7 @@ index 450e28b..76180f2 100644
  #include "brpc/compress.h"
  #include "brpc/errno.pb.h"                     // ENOSERVICE, ENOMETHOD
  #include "brpc/controller.h"                   // Controller
-@@ -748,16 +749,9 @@ HttpResponseSender::~HttpResponseSender() {
+@@ -758,16 +759,9 @@ HttpResponseSender::~HttpResponseSender() {
                  cntl->SetFailed(ERESPONSE, "Fail to serialize %s", res->GetTypeName().c_str());
              }
          } else {
@@ -571,7 +571,7 @@ index 50660a0..969eab9 100644
  #include "brpc/socket.h"                         // Socket
  #include "brpc/server.h"                         // Server
 diff --git a/src/brpc/policy/list_naming_service.cpp b/src/brpc/policy/list_naming_service.cpp
-index bffc9a0..7f93e7f 100644
+index 3a8ba45..bfba842 100644
 --- a/src/brpc/policy/list_naming_service.cpp
 +++ b/src/brpc/policy/list_naming_service.cpp
 @@ -20,6 +20,7 @@
@@ -583,7 +583,7 @@ index bffc9a0..7f93e7f 100644
  #include "brpc/policy/list_naming_service.h"
  
 diff --git a/src/brpc/policy/locality_aware_load_balancer.cpp b/src/brpc/policy/locality_aware_load_balancer.cpp
-index f97b035..4946cb6 100644
+index db13982..74ff23b 100644
 --- a/src/brpc/policy/locality_aware_load_balancer.cpp
 +++ b/src/brpc/policy/locality_aware_load_balancer.cpp
 @@ -20,6 +20,7 @@
@@ -595,7 +595,7 @@ index f97b035..4946cb6 100644
  #include "brpc/socket.h"
  #include "brpc/reloadable_flags.h"
 diff --git a/src/brpc/policy/locality_aware_load_balancer.h b/src/brpc/policy/locality_aware_load_balancer.h
-index 0e40101..a34d91e 100644
+index f4392f4..cb542c0 100644
 --- a/src/brpc/policy/locality_aware_load_balancer.h
 +++ b/src/brpc/policy/locality_aware_load_balancer.h
 @@ -118,7 +118,7 @@ private:
@@ -694,7 +694,7 @@ index ee7fa53..4d562af 100644
  #include "brpc/policy/round_robin_load_balancer.h"
  
 diff --git a/src/brpc/policy/rtmp_protocol.cpp b/src/brpc/policy/rtmp_protocol.cpp
-index 2e7d509..64535cd 100644
+index 33a0c0c..84066b3 100644
 --- a/src/brpc/policy/rtmp_protocol.cpp
 +++ b/src/brpc/policy/rtmp_protocol.cpp
 @@ -21,6 +21,7 @@
@@ -742,6 +742,18 @@ index eae081a..124b2ed 100755
  #include "brpc/log.h"
  #include "brpc/controller.h"                    // Controller
  #include "brpc/socket.h"                        // Socket
+diff --git a/src/brpc/policy/weighted_randomized_load_balancer.cpp b/src/brpc/policy/weighted_randomized_load_balancer.cpp
+index 5ef4fc3..600ae82 100644
+--- a/src/brpc/policy/weighted_randomized_load_balancer.cpp
++++ b/src/brpc/policy/weighted_randomized_load_balancer.cpp
+@@ -19,6 +19,7 @@
+ #include <algorithm>
+ 
+ #include "butil/fast_rand.h"
++#include "butil/logging.h"
+ #include "brpc/socket.h"
+ #include "brpc/policy/weighted_randomized_load_balancer.h"
+ #include "butil/strings/string_number_conversions.h"
 diff --git a/src/brpc/policy/weighted_round_robin_load_balancer.cpp b/src/brpc/policy/weighted_round_robin_load_balancer.cpp
 index 1e6add5..9a4080f 100644
 --- a/src/brpc/policy/weighted_round_robin_load_balancer.cpp
@@ -755,7 +767,7 @@ index 1e6add5..9a4080f 100644
  #include "brpc/policy/weighted_round_robin_load_balancer.h"
  #include "butil/strings/string_number_conversions.h"
 diff --git a/src/brpc/protocol.cpp b/src/brpc/protocol.cpp
-index 11297ea..c998edb 100644
+index 3e2c717..85dee85 100644
 --- a/src/brpc/protocol.cpp
 +++ b/src/brpc/protocol.cpp
 @@ -203,7 +203,7 @@ BUTIL_FORCE_INLINE bool ParsePbFromZeroCopyStreamInlined(
@@ -790,7 +802,7 @@ index c1e0602..f8fcea7 100755
              return dummy;
          }
 diff --git a/src/brpc/redis.cpp b/src/brpc/redis.cpp
-index 7cfc21f..c52384b 100644
+index 50cab08..d90a355 100644
 --- a/src/brpc/redis.cpp
 +++ b/src/brpc/redis.cpp
 @@ -19,6 +19,7 @@
@@ -883,7 +895,7 @@ index bf3d7fc..625ffe1 100644
  namespace bvar {
  std::string read_command_name();
 diff --git a/src/brpc/rtmp.cpp b/src/brpc/rtmp.cpp
-index 3797972..2baebe7 100644
+index ae6eb6a..977313b 100644
 --- a/src/brpc/rtmp.cpp
 +++ b/src/brpc/rtmp.cpp
 @@ -20,6 +20,7 @@
@@ -921,7 +933,7 @@ index c3a595b..57314a0 100644
  namespace brpc {
  
 diff --git a/src/brpc/simple_data_pool.h b/src/brpc/simple_data_pool.h
-index affd8f1..33f0026 100644
+index 390f6e5..51b2434 100644
 --- a/src/brpc/simple_data_pool.h
 +++ b/src/brpc/simple_data_pool.h
 @@ -21,7 +21,7 @@
@@ -1026,7 +1038,7 @@ index 283ea48..6523f7d 100644
  namespace brpc {
  
 diff --git a/src/brpc/trackme.cpp b/src/brpc/trackme.cpp
-index b0f56f3..72c1c4a 100644
+index 85598a6..7ebc70a 100644
 --- a/src/brpc/trackme.cpp
 +++ b/src/brpc/trackme.cpp
 @@ -24,6 +24,7 @@
@@ -1050,10 +1062,10 @@ index ebefe53..d08574e 100644
  #include "brpc/policy/rtmp_protocol.h"
  #include "brpc/ts.h"
 diff --git a/src/brpc/uri.cpp b/src/brpc/uri.cpp
-index 15ca9e9..5035d75 100644
+index f5d544c..8cc44c2 100644
 --- a/src/brpc/uri.cpp
 +++ b/src/brpc/uri.cpp
-@@ -19,7 +19,7 @@
+@@ -23,7 +23,7 @@
  #include "brpc/log.h"
  #include "brpc/details/http_parser.h"      // http_parser_parse_url
  #include "brpc/uri.h"                      // URI
@@ -1165,7 +1177,7 @@ index 7911db6..9ebefce 100644
  }
  
 diff --git a/src/bthread/key.cpp b/src/bthread/key.cpp
-index a4a0840..55c1d39 100644
+index 53f7594..3a0e79f 100644
 --- a/src/bthread/key.cpp
 +++ b/src/bthread/key.cpp
 @@ -25,6 +25,7 @@
@@ -1248,7 +1260,7 @@ index 43e57ef..2154fc0 100644
  DEFINE_int32(stack_size_small, 32768, "size of small stacks");
  DEFINE_int32(stack_size_normal, 1048576, "size of normal stacks");
 diff --git a/src/bthread/task_group.cpp b/src/bthread/task_group.cpp
-index d561c57..4c81d57 100644
+index 7c41653..b391f9a 100644
 --- a/src/bthread/task_group.cpp
 +++ b/src/bthread/task_group.cpp
 @@ -36,6 +36,7 @@
@@ -1273,7 +1285,7 @@ index d48ceaa..b329554 100644
          // A better solution is to pop and run existing bthreads, however which
          // make set_remained()-callbacks do context switches and need extensive
 diff --git a/src/bthread/types.h b/src/bthread/types.h
-index 8263ea9..3cccb60 100644
+index 45bf4be..b394430 100644
 --- a/src/bthread/types.h
 +++ b/src/bthread/types.h
 @@ -23,8 +23,9 @@
@@ -1287,7 +1299,7 @@ index 8263ea9..3cccb60 100644
  #endif
  
  typedef uint64_t bthread_t;
-@@ -99,7 +100,7 @@ typedef struct bthread_attr_t {
+@@ -100,7 +101,7 @@ typedef struct bthread_attr_t {
          keytable_pool = NULL;
      }
      bthread_attr_t operator|(unsigned other_flags) const {
@@ -1482,7 +1494,7 @@ index 93ba342..9822dbb 100644
  }
  
 diff --git a/src/butil/containers/flat_map.h b/src/butil/containers/flat_map.h
-index ef89aa6..ecb5bec 100644
+index 27777e4..4556bf4 100644
 --- a/src/butil/containers/flat_map.h
 +++ b/src/butil/containers/flat_map.h
 @@ -97,7 +97,7 @@
@@ -1907,7 +1919,7 @@ index 82704d8..12aa98a 100644
      if (--ref_count_ == 0) {
    #ifndef NDEBUG
 diff --git a/src/butil/memory/scoped_vector.h b/src/butil/memory/scoped_vector.h
-index f1a3474..0b7efe0 100644
+index a2aeba7..34dc23c 100644
 --- a/src/butil/memory/scoped_vector.h
 +++ b/src/butil/memory/scoped_vector.h
 @@ -8,7 +8,7 @@
@@ -1919,7 +1931,7 @@ index f1a3474..0b7efe0 100644
  #include "butil/move.h"
  #include "butil/stl_util.h"
  
-@@ -68,7 +68,7 @@ class ScopedVector {
+@@ -71,7 +71,7 @@ class ScopedVector {
    void push_back(T* elem) { v_.push_back(elem); }
  
    void pop_back() {
@@ -2230,10 +2242,10 @@ index 19b638f..fa3e29f 100644
                         a2.begin(), a2.end());
  }
 diff --git a/src/butil/strings/string_util.h b/src/butil/strings/string_util.h
-index de37119..ff90a47 100644
+index 23bc01e..e38b6e8 100644
 --- a/src/butil/strings/string_util.h
 +++ b/src/butil/strings/string_util.h
-@@ -353,7 +353,7 @@ inline bool IsHexDigit(Char c) {
+@@ -362,7 +362,7 @@ inline bool IsHexDigit(Char c) {
  
  template <typename Char>
  inline Char HexDigitToInt(Char c) {
@@ -2242,7 +2254,7 @@ index de37119..ff90a47 100644
    if (c >= '0' && c <= '9')
      return c - '0';
    if (c >= 'A' && c <= 'F')
-@@ -426,7 +426,7 @@ BUTIL_EXPORT void ReplaceSubstringsAfterOffset(std::string* str,
+@@ -435,7 +435,7 @@ BUTIL_EXPORT void ReplaceSubstringsAfterOffset(std::string* str,
  template <class string_type>
  inline typename string_type::value_type* WriteInto(string_type* str,
                                                     size_t length_with_null) {
@@ -2492,7 +2504,7 @@ index f04268d..48b6621 100644
      }
  
 diff --git a/src/bvar/detail/sampler.cpp b/src/bvar/detail/sampler.cpp
-index f2ca308..b76d0b2 100644
+index 3a14b37..85ca74c 100644
 --- a/src/bvar/detail/sampler.cpp
 +++ b/src/bvar/detail/sampler.cpp
 @@ -23,6 +23,7 @@
@@ -2562,7 +2574,7 @@ index 85ec237..015865f 100644
          }
          BAIDU_SCOPED_LOCK(_mutex);
 diff --git a/src/bvar/detail/series.h b/src/bvar/detail/series.h
-index b12b7c6..c7f7bf5 100644
+index 3ceb913..b0a0c83 100644
 --- a/src/bvar/detail/series.h
 +++ b/src/bvar/detail/series.h
 @@ -230,7 +230,7 @@ public:
@@ -2703,7 +2715,7 @@ index f41024a..6a9b154 100644
  #else
          return pthread_mutex_destroy(mutex) == 0;
 diff --git a/src/bvar/variable.cpp b/src/bvar/variable.cpp
-index 17eeadc..cbbb05f 100644
+index d9f7273..b8c7a6a 100644
 --- a/src/bvar/variable.cpp
 +++ b/src/bvar/variable.cpp
 @@ -31,6 +31,7 @@
@@ -2737,7 +2749,7 @@ index a5780bf..a2cae43 100644
      
      ~WindowBase() {
 diff --git a/src/json2pb/pb_to_json.cpp b/src/json2pb/pb_to_json.cpp
-index 704f963..621ec3e 100644
+index 55578c3..a45bc12 100644
 --- a/src/json2pb/pb_to_json.cpp
 +++ b/src/json2pb/pb_to_json.cpp
 @@ -22,6 +22,8 @@
