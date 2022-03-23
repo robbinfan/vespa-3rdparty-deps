@@ -294,6 +294,24 @@ index 53a1541..d0131de 100644
  
  namespace bthread {
  // Defined in bthread/task_control.cpp
+diff --git a/src/brpc/esp_message.h b/src/brpc/esp_message.h
+index 1b23974..377b170 100644
+--- a/src/brpc/esp_message.h
++++ b/src/brpc/esp_message.h
+@@ -54,6 +54,13 @@ public:
+     // implements Message ----------------------------------------------
+ 
+     EspMessage* New() const;
++    EspMessage* New(::google::protobuf::Arena* arena) const {
++        EspMessage* message = New();
++        if (arena != nullptr) {
++            arena->Own(message);
++        }
++        return message;
++    }
+     void CopyFrom(const ::google::protobuf::Message& from);
+     void MergeFrom(const ::google::protobuf::Message& from);
+     void CopyFrom(const EspMessage& from);
 diff --git a/src/brpc/extension.h b/src/brpc/extension.h
 index 9d6c94b..343a73f 100644
 --- a/src/brpc/extension.h
@@ -339,6 +357,56 @@ index 18f6a7a..6e6d255 100644
  
  namespace brpc {
  
+diff --git a/src/brpc/memcache.h b/src/brpc/memcache.h
+index bd54c39..9854fad 100644
+--- a/src/brpc/memcache.h
++++ b/src/brpc/memcache.h
+@@ -90,6 +90,13 @@ public:
+ 
+     // Protobuf methods.
+     MemcacheRequest* New() const;
++    MemcacheRequest* New(::google::protobuf::Arena* arena) const {
++        MemcacheRequest* message = New();
++        if (arena != nullptr) {
++            arena->Own(message);
++        }
++        return message;
++    }
+     void CopyFrom(const ::google::protobuf::Message& from);
+     void MergeFrom(const ::google::protobuf::Message& from);
+     void CopyFrom(const MemcacheRequest& from);
+@@ -200,6 +207,13 @@ public:
+     // implements Message ----------------------------------------------
+   
+     MemcacheResponse* New() const;
++    MemcacheResponse* New(::google::protobuf::Arena* arena) const {
++        MemcacheResponse* message = New();
++        if (arena != nullptr) {
++            arena->Own(message);
++        }
++        return message;
++    }
+     void CopyFrom(const ::google::protobuf::Message& from);
+     void MergeFrom(const ::google::protobuf::Message& from);
+     void CopyFrom(const MemcacheResponse& from);
+diff --git a/src/brpc/nshead_message.h b/src/brpc/nshead_message.h
+index 3f41454..20cbab8 100644
+--- a/src/brpc/nshead_message.h
++++ b/src/brpc/nshead_message.h
+@@ -50,6 +50,13 @@ public:
+     // implements Message ----------------------------------------------
+   
+     NsheadMessage* New() const;
++    NsheadMessage* New(::google::protobuf::Arena* arena) const {
++        NsheadMessage* message = New();
++        if (arena != nullptr) {
++            arena->Own(message);
++        }
++        return message;
++    }
+     void CopyFrom(const ::google::protobuf::Message& from);
+     void MergeFrom(const ::google::protobuf::Message& from);
+     void CopyFrom(const NsheadMessage& from);
 diff --git a/src/brpc/nshead_service.cpp b/src/brpc/nshead_service.cpp
 index 0f043e2..0dca955 100644
 --- a/src/brpc/nshead_service.cpp
@@ -813,6 +881,38 @@ index 50cab08..d90a355 100644
  #include "butil/strings/string_util.h"          // StringToLowerASCII
  #include "brpc/redis.h"
  #include "brpc/redis_command.h"
+diff --git a/src/brpc/redis.h b/src/brpc/redis.h
+index d90da9e..0433c61 100644
+--- a/src/brpc/redis.h
++++ b/src/brpc/redis.h
+@@ -108,6 +108,13 @@ public:
+ 
+     // Protobuf methods.
+     RedisRequest* New() const;
++    RedisRequest* New(::google::protobuf::Arena* arena) const {
++        RedisRequest* message = New();
++        if (arena != nullptr) {
++            arena->Own(message);
++        }
++        return message;
++    }
+     void CopyFrom(const ::google::protobuf::Message& from);
+     void MergeFrom(const ::google::protobuf::Message& from);
+     void CopyFrom(const RedisRequest& from);
+@@ -178,6 +185,13 @@ public:
+     // implements Message ----------------------------------------------
+   
+     RedisResponse* New() const;
++    RedisResponse* New(::google::protobuf::Arena* arena) const {
++        RedisResponse* message = New();
++        if (arena != nullptr) {
++            arena->Own(message);
++        }
++        return message;
++    }
+     void CopyFrom(const ::google::protobuf::Message& from);
+     void MergeFrom(const ::google::protobuf::Message& from);
+     void CopyFrom(const RedisResponse& from);
 diff --git a/src/brpc/redis_reply.h b/src/brpc/redis_reply.h
 index d2515d8..a608bcc 100644
 --- a/src/brpc/redis_reply.h
@@ -919,6 +1019,24 @@ index 66a916b..fbcdcc4 100644
  
  namespace brpc {
  
+diff --git a/src/brpc/serialized_request.h b/src/brpc/serialized_request.h
+index c59495d..d4dfda3 100644
+--- a/src/brpc/serialized_request.h
++++ b/src/brpc/serialized_request.h
+@@ -44,6 +44,13 @@ public:
+     // implements Message ----------------------------------------------
+   
+     SerializedRequest* New() const;
++    SerializedRequest* New(::google::protobuf::Arena* arena) const {
++        SerializedRequest* message = New();
++        if (arena != nullptr) {
++            arena->Own(message);
++        }
++        return message;
++    }
+     void CopyFrom(const ::google::protobuf::Message& from);
+     void CopyFrom(const SerializedRequest& from);
+     void Clear();
 diff --git a/src/brpc/server_id.cpp b/src/brpc/server_id.cpp
 index c3a595b..57314a0 100644
 --- a/src/brpc/server_id.cpp
@@ -1013,10 +1131,24 @@ index e48441e..2e39437 100644
  #include "brpc/log.h"
  #include "brpc/socket.h"
 diff --git a/src/brpc/thrift_message.h b/src/brpc/thrift_message.h
-index a152b16..c612c73 100644
+index a152b16..0d6a492 100644
 --- a/src/brpc/thrift_message.h
 +++ b/src/brpc/thrift_message.h
-@@ -198,7 +198,7 @@ T* ThriftFramedMessage::Cast() {
+@@ -84,6 +84,13 @@ public:
+     // implements Message ----------------------------------------------
+   
+     ThriftFramedMessage* New() const;
++    ThriftFramedMessage* New(::google::protobuf::Arena* arena) const {
++        ThriftFramedMessage* message = New();
++        if (arena != nullptr) {
++            arena->Own(message);
++        }
++        return message;
++    }
+     void CopyFrom(const ::google::protobuf::Message& from);
+     void MergeFrom(const ::google::protobuf::Message& from);
+     void CopyFrom(const ThriftFramedMessage& from);
+@@ -198,7 +205,7 @@ T* ThriftFramedMessage::Cast() {
  
      if (!body.empty()) {
          if (!policy::ReadThriftStruct(body, _raw_instance, field_id)) {
