@@ -25,6 +25,9 @@ Patch0:         patches.remove_log.diff
 %global  _filter_GLIBC_PRIVATE 1
 %global __filter_GLIBC_PRIVATE 1
 
+Requires: vespa-protobuf-devel >= 3.19.1-1.el7
+Requires: vespa-openssl-devel >= 1.1.1n-1
+
 %if 0%{?el7}
 BuildRequires: gflags-devel >= 2.1
 BuildRequires: leveldb-devel
