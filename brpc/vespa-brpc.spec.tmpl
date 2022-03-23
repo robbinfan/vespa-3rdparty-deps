@@ -4,6 +4,15 @@
 # Force special prefix for Vespa
 %define _prefix /opt/vespa-deps
 
+# Only strip debug info
+%global _find_debuginfo_opts -g
+
+# Don't provide shared library or pkgconfig
+%global __provides_exclude ^(lib.*\\.so\\.[0-9.]*\\([A-Za-z._0-9]*\\)\\(64bit\\)|pkgconfig\\(.*)$
+
+# Exclude automated requires for libraries in /opt/vespa-deps/lib64.
+%global __requires_exclude ^(lib(crypto|ssl|protobuf|protoc)\\.so\\.[0-9.]*\\([A-Za-z._0-9]*\\)\\(64bit\\)|pkgconfig\\(lib(crypto|ssl)\\))$
+
 # Version
 %define ver_major _TMPL_VER_MAJOR
 %define ver_minor _TMPL_VER_MINOR
@@ -25,9 +34,6 @@ Patch0:         patches.remove_log.diff
 %global  _filter_GLIBC_PRIVATE 1
 %global __filter_GLIBC_PRIVATE 1
 
-Requires: vespa-protobuf-devel >= 3.19.1-1.el7
-Requires: vespa-openssl-devel >= 1.1.1n-1
-
 %if 0%{?el7}
 BuildRequires: gflags-devel >= 2.1
 BuildRequires: leveldb-devel
@@ -44,17 +50,22 @@ BuildRequires: devtoolset-10-gcc-c++%{?_isa}
 %endif
 %endif
 
+%global _vespa_3rdparty_deps_packaging_notice \
+See https://github.com/vespa-engine/vespa-3rdparty-deps for details \
+about packaging.
+
 %description
 An industrial-grade RPC framework used throughout Baidu, with 1,000,000+ instances(not counting clients) and thousands kinds of services.
 "brpc" means "better RPC".
 
 %package devel
+%{_vespa_3rdparty_deps_packaging_notice}
 Summary: The %{name} headers and shared development libraries
 Requires: %{name} = %{version}-%{release}
 
 %description devel
 Headers and shared object symbolic links for the %{name} library.
-
+%{_vespa_3rdparty_deps_packaging_notice}
 %prep
 %setup -q -n incubator-brpc-%{version}
 %patch0 -p1
