@@ -57,7 +57,9 @@ Headers and shared object symbolic links for the %{name} library.
 
 %package static
 Summary: The %{name} static development libraries
-Requires: brpc-devel = %{version}-%{release}
+Requires: gflags
+Requires: vespa-protobuf >= 3.19.1-1.el7
+Requires: vespa-openssl >= 1.1.1n-1
 %description static
 Static %{name} libraries.
 
