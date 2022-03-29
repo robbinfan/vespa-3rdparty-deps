@@ -3512,7 +3512,7 @@ index ed91422..7831d63 100644
  
 diff --git a/src/bvar/multi_dimension.h b/src/bvar/multi_dimension.h
 new file mode 100644
-index 0000000..c9cc9a3
+index 0000000..5903999
 --- /dev/null
 +++ b/src/bvar/multi_dimension.h
 @@ -0,0 +1,140 @@
@@ -3623,11 +3623,11 @@ index 0000000..c9cc9a3
 +    T* get_stats_read_or_insert(const key_type& labels_value, bool* do_write = NULL) {
 +        return get_stats_impl(labels_value, READ_OR_INSERT, do_write);
 +    }
++#endif
 +
 +    // Remove all stats so those not count and dump
 +    // CAUTION!!! Just For Debug!!!
 +    void delete_stats(const key_type& labels_value);
-+#endif
 +
 +private:
 +    T* get_stats_impl(const key_type& labels_value, STATS_OP stats_op = READ_ONLY, bool* do_write = NULL);
@@ -3656,13 +3656,12 @@ index 0000000..c9cc9a3
 +#include "bvar/multi_dimension_inl.h"
 +
 +#endif // BVAR_MULTI_DIMENSION_H
-\ No newline at end of file
 diff --git a/src/bvar/multi_dimension_inl.h b/src/bvar/multi_dimension_inl.h
 new file mode 100644
-index 0000000..80b1cdd
+index 0000000..a71eda9
 --- /dev/null
 +++ b/src/bvar/multi_dimension_inl.h
-@@ -0,0 +1,376 @@
+@@ -0,0 +1,374 @@
 +// Licensed to the Apache Software Foundation (ASF) under one
 +// or more contributor license agreements.  See the NOTICE file
 +// distributed with this work for additional information
@@ -3752,7 +3751,6 @@ index 0000000..80b1cdd
 +    return metric_map_ptr->size();
 +}
 +
-+#ifdef UNIT_TEST
 +template <typename T>
 +inline
 +void MultiDimension<T>::delete_stats(const key_type& labels_value) {
@@ -3775,7 +3773,6 @@ index 0000000..80b1cdd
 +        }
 +    }
 +}
-+#endif // end UNIT_TEST
 +
 +template <typename T>
 +inline
