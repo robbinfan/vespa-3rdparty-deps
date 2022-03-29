@@ -1,3 +1,783 @@
+diff --git a/docs/cn/mbvar_c++.md b/docs/cn/mbvar_c++.md
+new file mode 100644
+index 0000000..54dda9a
+--- /dev/null
++++ b/docs/cn/mbvar_c++.md
+@@ -0,0 +1,774 @@
++- [Introduction](#introduction)
++- [bvar::MVariables](#bvarmvariables)
++  - [expose](#expose)
++    - [expose](#expose-1)
++    - [expose_as](#expose_as)
++  - [Export all MVariable](#export-all-mvariable)
++  - [count](#count)
++    - [count_exposed](#count_exposed)
++  - [list](#list)
++    - [list_exposed](#list_exposed)
++- [bvar::MultiDimension](#bvarmultidimension)
++  - [constructor](#constructor)
++  - [stats](#stats)
++    - [get_stats](#get_stats)
++  - [count](#count-1)
++    - [count_labels](#count_labels)
++    - [count_stats](#count_stats)
++  - [list](#list-1)
++    - [list_stats](#list_stats)
++  - [template](#template)
++    - [bvar::Adder](#bvaradder)
++    - [bvar::Maxer](#bvarmaxer)
++    - [bvar::Miner](#bvarminer)
++    - [bvar::IntRecorder](#bvarintrecorder)
++    - [bvar::LatencyRecorder](#bvarlatencyrecorder)
++    - [bvar::Status](#bvarstatus)
++
++# Introduction
++
++bvar多维度统计使用文档
++
++mbvar中有两个类，分别是MVariable和MultiDimension，MVariable是多维度统计的基类，MultiDimension是派生模板类，目前支持如下几种类型：
++
++| bvar类型 | 说明 |
++| ------ | ------ |
++| bvar::Adder<T> | 计数器，默认0，varname << N相当于varname += N。 |
++| bvar::Maxer<T> | 求最大值，默认std::numeric_limits<T>::min()，varname << N相当于varname = max(varname, N)。 |
++| bvar::Miner<T> | 求最小值，默认std::numeric_limits<T>::max()，varname << N相当于varname = min(varname, N)。 |
++| bvar::IntRecorder | 求自使用以来的平均值。注意这里的定语不是“一段时间内”。一般要通过Window衍生出时间窗口内的平均值。 |
++| bvar::LatencyRecorder | 专用于记录延时和qps的变量。输入延时，平均延时/最大延时/qps/总次数 都有了。 |
++| bvar::Status<T> | 记录和显示一个值，拥有额外的set_value函数 |
++
++例子：
++```c++
++#include <bvar/bvar.h>
++#include <bvar/multi_dimension.h>
++
++namespace foo {
++namespace bar {
++// 定义一个全局多维度mbvar变量
++bvar::MultiDimension<bvar::Adder<int> > g_request_count("request_count", {"idc", "method", "status"});
++// bvar::MultiDimension<bvar::Adder<int> > g_request_count("foo_bar", "request_count", {"idc", "method", "status"});
++
++int process_request(const std::list<std::string>& request_label) {
++    // 获取request_label对应的单维度bvar指针，比如：request_label = {"tc", "get", "200"}
++    bvar::Adder<int>* adder = g_request_count.get_stats(request_label);
++    // 判断指针非空
++    if (!adder) {
++        return -1;
++    }
++    // adder只能在g_request_count的生命周期内访问，否则行为未定义，可能会出core
++    // 给adder输入一些值
++    *adder << 1 << 2 <<3;
++    LOG(INFO) << "adder=" << *adder; // adder add up to 6
++    ...
++    return 0;
++}
++
++} // namespace bar
++} // namespace foo
++```
++
++# bvar::MVariables
++MVariale是MultiDimension(多维度统计)的基类，主要提供全局注册、列举、查询和dump等功能。
++
++## expose
++
++### expose
++
++用户在创建mbvar变量(bvar::MultiDimension)的时候，如果使用一个参数的构造函数(共有三个构造函数)，这个mbvar并未注册到任何全局结构中(当然也不会dump到本地文件)，在这种情况下，mbvar纯粹是一个更快的多维度计数器。我们称把一个mbvar注册到全局表中的行为为“曝光”，可以通过expose函数曝光：
++
++```c++
++class MVariable {
++public
++    ...
++    // Expose this mvariable globally so that it's counted in following
++    // functions:
++    //     list_exposed
++    //     count_exposed
++    // Return 0 on success, -1 otherwise.
++    int expose(const base::StringPiece& name);
++    int expose_as(const base::StringPiece& prefix, const base::StringPiece& name);
++};
++```
++
++全局曝光后的mbvar名字便为name或者prefix+name，可通过以_exposed为后缀的static函数查询。比如MVariable::describe_exposed(name)会返回名为name的mbvar的描述。
++
++当相同名字的mbvar已存在时，expose会打印FATAL日志并返回-1。如果选项-bvar_abort_on_same_name设为true (默认是false)，程序会直接abort。
++
++下面是一些曝光mbvar的例子：
++```c++
++#include <bvar/bvar.h>
++#include <bvar/multi_dimension.h>
++
++namespace foo {
++namespace bar {
++// 定义一个全局的多维度mbvar变量
++bvar::MultiDimension<bvar::Adder<int> > g_request_count("request_count", {"idc", "method", "status"});
++
++// 换一个名字
++g_request_count->expose("request_count_another");
++
++int process_request(const std::list<std::string>& request_label) {
++    // 获取request_label对应的单维度bvar指针，比如：request_label = {"tc", "get", "200"}
++    bvar::Adder<int>* adder = g_request_count.get_stats(labels_value);
++    // 判断指针非空
++    if (!adder) {
++        return -1;
++    }
++
++    //adder只能在g_request_count的生命周期内访问，否则行为未定义，可能会出core
++    *adder << 10 << 20 << 30; // adder add up to 60
++}
++
++} // namespace bar
++} // namespace foo
++```
++
++### expose_as
++
++为了避免重名，mbvar的名字应加上前缀，建议为\<namespace\>\_\<module\>\_\<name\>。为了方便使用，我们提供了expose_as函数，接收一个前缀。
++```c++
++class MVariable {
++public
++    ...
++    // Expose this mvariable with a prefix.
++    // Example:
++    //   namespace foo {
++    //   namespace bar {
++    //
++    //      bvar::MultiDimension<bvar::Adder<int> > g_request_count("request_count", {"idc", "method", "status"});
++    //      g_request_count.expose_as("foo_bar", "request_count");
++    //      ...
++    //
++    //   }  // foo
++    //   }  // bar
++    int expose_as(const base::StringPiece& prefix, const base::StringPiece& name);
++};
++```
++
++## Export all MVariable
++提供dump_exposed函数导出进程中所有已曝光的mbvar：
++
++```c++
++// Implement this class to write mvariables into different places.
++// If dump() returns false, MVariable::dump_exposed() skip and continue dump.
++class Dumper {
++public:
++    virtual bool dump(const std::string& name, const base::StringPiece& description) = 0;
++};
++
++// Options for MVariable::dump_exposed().
++struct DumpOptions {
++    // Contructed with default options.
++    DumpOptions();
++    // If this is true, string-type values will be quoted.
++    bool quote_string;
++    // The ? in wildcards. Wildcards in URL need to use another character
++    // because ? is reserved.
++    char question_mark; // 目前不支持
++    // Separator for white_wildcards and black_wildcards.
++    char wildcard_separator; // 目前不支持
++    // Name matched by these wildcards (or exact names) are kept.
++    std::string white_wildcards; // 目前不支持
++    // Name matched by these wildcards (or exact names) are skipped.
++    std::string black_wildcards; // 目前不支持
++};
++
++class MVariable {
++    ...
++    ...
++    // Find all exposed mvariables and send them to `dumper'.
++    // Use default options when `options' is NULL.
++    // Return number of dumped mvariables, -1 on error.
++    static size_t dump_exposed(Dumper* dumper, const DumpOptions* options);
++};
++```
++
++最常见的导出需求是通过HTTP接口查询和写入本地文件，多维度统计暂时不提供HTTP接口方式查询，后者已经在bvar中实现了，由用户选择开启，该功能由下面5个gflags控制，你的程序需要使用gflags。
++
++| 名称 | 默认值 | 描述 |
++| ------ | ------ | ------ |
++| mbvar_dump |false	| Create a background thread dumping(shares the same thread as bvar_dump) all mbvar periodically, all bvar_dump_* flags are not effective when this flag is off |
++| mbvar_dump_file | monitor/mbvar.\<app\>.data | Dump mbvar into this file |
++| mbvar_dump_format	| common | Dump mbvar write format <br> common：文本格式，Key和Value用冒号分割(和目前的单维度dump文件格式一致) <br><br> prometheus：文本格式，Key和Value用空格分开protobuf：二进制格式，暂时不支持|
++| bvar_dump_interval | 10 |Seconds between consecutive dump |
++| mbvar_dump_prefix | \<app\> | Every dumped name starts with this prefix |
++
++用户可在程序启动前加上对应的gflags。
++
++>当mbvar_dump=true并且mbvar_dump_file不为空时，程序会启动一个后台导出线程以bvar_dump_interval指定的间隔更新mbvar_dump_file，其中包含所有的多维统计项mbvar。
++
++比如我们把所有的gflags修改为下表：
++| 名称 | 默认值 | 描述 |
++| ------ | ------ | ------ |
++| mbvar_dump |true	| Create a background thread dumping(shares the same thread as bvar_dump) all mbvar periodically, all bvar_dump_* flags are not effective when this flag is off |
++| mbvar_dump_file | monitor/mbvar.\<app\>.data | Dump mbvar into this file |
++| mbvar_dump_format	| common | Dump mbvar write format <br> common：文本格式，Key和Value用冒号分割(和目前的单维度dump文件格式一致) <br><br> prometheus：文本格式，Key和Value用空格分开protobuf：二进制格式，暂时不支持|
++| bvar_dump_interval | 10 |Seconds between consecutive dump |
++| mbvar_dump_prefix | mbvar | Every dumped name starts with this prefix |
++
++导出的本地文件为monitor/mbvar.\<app\>.data：
++```
++mbvar_test_concurrent_write_and_read{idc=idc3,method=method6,status=status40} : 76896
++mbvar_test_concurrent_write_and_read{idc=idc5,method=method6,status=status36} : 147910
++mbvar_test_concurrent_write_and_read{idc=idc5,method=method12,status=status23} : 209270
++mbvar_test_concurrent_write_and_read{idc=idc3,method=method1,status=status6} : 116325
++mbvar_test_concurrent_write_and_read{idc=idc5,method=method10,status=status29} : 193536
++mbvar_test_concurrent_write_and_read{idc=idc5,method=method15,status=status6} : 294726
++mbvar_test_concurrent_write_and_read{idc=idc3,method=method2,status=status13} : 136676
++mbvar_test_concurrent_write_and_read{idc=idc2,method=method5,status=status49} : 43203
++mbvar_test_concurrent_write_and_read{idc=idc5,method=method10,status=status1} : 312499
++mbvar_test_concurrent_write_and_read{idc=idc1,method=method10,status=status35} : 35698
++```
++
++如果你的程序没有使用brpc，仍需要动态修改gflags（一般不需要），可以调用google::SetCommandLineOption()，如下所示：
++
++```c++
++#include <gflags/gflags.h>
++...
++if (google::SetCommandLineOption("mbvar_dump_format", "prometheus").empty()) {
++    LOG(ERROR) << "Fail to set mbvar_dump_format";
++    return -1;
++}
++LOG(INFO) << "Successfully set mbvar_dump_format to prometheus";
++```
++
++>请勿直接设置 FLAGS_mbvar_dump_file / FLAGS_mbvar_dump_format / FLAGS_bvar_dump_prefix，如果有需求可以调用google::SetCommandLineOption()方法进行修改。
++
++一方面这些gflag类型都是std::string，直接覆盖是线程不安全的；另一方面不会触发validator（检查正确性的回调），所以也不会启动后台导出线程。
++
++
++## count
++统计相关函数
++```c++
++class MVariable {
++public:
++    ...
++    // Get number of exposed mvariables
++    static size_t count_exposed();
++};
++```
++
++### count_exposed
++
++获取目前已经曝光的多维度统计项mbvar的个数，注意：这里是多维度统计项(多维度mbvar变量)，而不是维度数。
++```c++
++#include <bvar/bvar.h>
++#include <bvar/multi_dimension.h>
++
++namespace foo {
++namespace bar {
++// 定义一个全局的多维度mbvar变量
++bvar::MultiDimension<bvar::Adder<int> > g_request_count("request_count", {"idc", "method", "status"});
++
++// 定义另一个全局多维度mbvar变量
++bvar::MultiDimension<bvar::Adder<int> > g_psmi_count("psmi_count", {"product", "system", "module", "interface"});
++
++size_t count_exposed() {
++    size_t mbvar_count_exposed = bvar::MVariable::count_exposed();
++    CHECK_EQ(2, mbvar_count_exposed);
++    return mbvar_count_exposed;
++}
++
++} // namespace bar
++} // namespace foo
++```
++
++使用说明
++> 一般情况下用不到count_系列统计函数，如果有特殊需求，也不建议频繁调用。
++
++
++## list
++```c++
++class MVariable {
++public:
++    ...
++    // Put names of all exposed mbvariable into `names'
++    static size_t list_exposed(std::vector<std::string>* names);
++};
++```
++
++### list_exposed
++获取所有曝光的多维度统计项mbvar名称
++```c++
++#include <bvar/bvar.h>
++#include <bvar/multi_dimension.h>
++
++namespace foo {
++namespace bar {
++// 定义一个全局的多维度mbvar变量
++bvar::MultiDimension<bvar::Adder<int> > g_request_count("request_count", {"idc", "method", "status"});
++
++// 定义另一个全局多维度mbvar变量
++bvar::MultiDimension<bvar::Adder<int> > g_psmi_count("psmi_count", {"product", "system", "module", "interface"});
++
++size_t mbvar_list_exposed(std::vector<std::string>* names) {
++    if (!names) {
++        return -1;
++    }
++
++    // clear
++    names.clear();
++    bvar::MVariable::list_exposed(names);
++    // names：[ "request_count", "psmi_count" ]
++    CHECK_EQ(2, names->size());
++    return names->size();
++}
++
++} // namespace bar
++} // namespace foo
++```
++
++# bvar::MultiDimension
++
++多维度统计的实现，主要提供bvar的获取、列举等功能。
++
++## constructor
++
++有三个构造函数：
++```c++
++template <typename T>
++class MultiDimension : public MVariable {
++public:
++    // 不建议使用
++    explicit MultiDimension(const key_type& labels);
++
++    // 推荐使用
++    MultiDimension(const base::StringPiece& name,
++                   const key_type& labels);
++    // 推荐使用
++    MultiDimension(const base::StringPiece& prefix,
++                   const base::StringPiece& name,
++                   const key_type& labels);
++    ...
++};
++```
++
++**explicit MultiDimension(const key_type& labels)**
++
++* ~~不建议使用~~
++* 不会“曝光”多维度统计变量(mbvar)，即没有注册到任何全局结构* 中
++* 不会dump到本地文件，即使-bvar_dump=true、-mbvar_dump_file不为空
++* mbvar纯粹是一个更快的多维度计数器
++
++**MultiDimension(const base::StringPiece& name, const key_type& labels)**
++
++* **推荐使用**
++* 会曝光(调用MVariable::expose(name))，也会注册到全局结构中
++* -bvar_dump=true时，会启动一个后台导出线程以bvar_dump_interval指定的时间间隔更新mbvar_dump_file文件
++
++```c++
++#include <bvar/bvar.h>
++#include <bvar/multi_dimension.h>
++
++namespace foo {
++namespace bar {
++// 定义一个全局的多维度mbvar变量
++bvar::MultiDimension<bvar::Adder<int> > g_request_count("request_count", {"idc", "method", "status"});
++
++} // namespace bar
++} // namespace foo
++```
++
++**MultiDimension(const base::StringPiece& prefix, const base::StringPiece& name, const key_type& labels)**
++* **推荐使用**
++* 会曝光(调用MVariable::expose_as(prefix, name))，也会注册到全局结构中
++* -bvar_dump=true时，会启动一个后台导出线程以bvar_dump_interval指定的时间间隔更新mbvar_dump_file文件
++
++```c++
++#include <bvar/bvar.h>
++#include <bvar/multi_dimension.h>
++
++namespace foo {
++namespace bar {
++// 定义一个全局的多维度mbvar变量
++bvar::MultiDimension<bvar::Adder<int> > g_request_count("foo_bar", "request_count", {"idc", "method", "status"});
++
++} // namespace bar
++} // namespace foo
++```
++
++## stats
++```c++
++template <typename T>
++class MultiDimension : public MVariable {
++public:
++    ...
++
++    // Get real bvar pointer object
++    // Return real bvar pointer(Not NULL) on success, NULL otherwise.
++    T* get_stats(const std::list<std::string>& labels_value);
++};
++```
++
++### get_stats
++根据指定label获取对应的单维度统计项bvar
++```c++
++#include <bvar/bvar.h>
++#include <bvar/multi_dimension.h>
++
++namespace foo {
++namespace bar {
++// 定义一个全局的多维度mbvar变量
++bvar::MultiDimension<bvar::Adder<int> > g_request_count("request_count", {"idc", "method", "status"});
++
++int get_request_count(const std::list<std::string>& request_label) {
++    // 获取request_label对应的单维度bvar指针，比如：request_label = {"tc", "get", "200"}
++    bvar::Adder<int> *request_adder = g_request_count.get_stats(request_label);
++    // 判断指针非空
++    if (!request_adder) {
++        return -1;
++    }
++
++    // request_adder只能在g_request_count的生命周期内访问，否则行为未定义，可能会出core
++    *request_adder << 1;
++    return request_adder->get_value();
++}
++
++} // namespace bar
++} // namespace foo
++```
++
++**内部实现逻辑**
++
++判断该label是否已经存在对应的单维度统计项bvar：
++
++* 存在
++    * return bvar
++* 不存在
++    * new bvar()
++    * store(bvar)
++    * return bvar
++
++**bvar的生命周期**
++
++label对应的单维度统计项bvar存储在多维度统计项(mbvar)中，当mbvar析构的时候会释放自身所有bvar，所以用户必须保证在mbvar的生命周期之内操作bvar，在mbvar生命周期外访问bvar的行为未定义，极有可能出core。
++
++## count
++```c++
++class MVariable {
++public:
++    ...
++
++    // Get number of mvariable labels
++    size_t count_labels() const;
++};
++
++template <typename T>
++class MultiDimension : public MVariable {
++public:
++    ...
++
++    // Get number of stats
++    size_t count_stats();
++};
++```
++
++### count_labels
++
++获取多维度统计项的labels个数，用户在创建多维度(bvar::MultiDimension)统计项的时候，需要提供类型为std::list\<std::string\>的labels变量，我们提供了count_labels函数，返回labels的长度。
++
++```c++
++#include <bvar/bvar.h>
++#include <bvar/multi_dimension.h>
++
++namespace foo {
++namespace bar {
++// 定义一个全局的多维度mbvar变量
++bvar::MultiDimension<bvar::Adder<int> > g_request_count("request_count", {"idc", "method", "status"});
++
++size_t count_labels() {
++    size_t mbvar_count_labels = g_request_count.count_labels();
++    CHECK_EQ(3, mbvar_count_labels);
++    return mbvar_count_labels;
++}
++} // namespace bar
++} // namespace foo
++```
++
++### count_stats
++
++获取多维度(bvar::MultiDimension)统计项的维度(stats)数
++```c++
++#include <bvar/bvar.h>
++#include <bvar/multi_dimension.h>
++
++namespace foo {
++namespace bar {
++// 定义一个全局的多维度mbvar变量
++bvar::MultiDimension<bvar::Adder<int> > g_request_count("request_count", {"idc", "method", "status"});
++
++size_t count_stats() {
++    // 获取request1对应的单维度mbvar指针，假设request1_labels = {"tc", "get", "200"}
++    bvar::Adder<int> *request1_adder = g_request_count.get_stats(request1_labels);
++    // 判断指针非空
++    if (!request1_adder) {
++        return -1;
++    }
++    // request1_adder只能在g_request_count生命周期内访问，否则行为未定义，可能会出core
++    *request1_adder << 1;
++
++    // 获取request2对应的单维度mbvar指针，假设request2_labels = {"nj", "get", "200"}
++    bvar::Adder<int> *request2_adder = g_request_count.get_stats(request2_labels);
++    // 判断指针非空
++    if (!request2_adder) {
++        return -1;
++    }
++    // request2_adder只能在g_request_count生命周期内访问，否则行为未定义，可能会出core
++    *request2_adder << 1;
++
++
++    size_t mbvar_count_stats = g_request_count.count_stats();
++    CHECK_EQ(2, mbvar_count_stats);
++    return mbvar_count_stats;
++}
++} // namespace bar
++} // namespace foo
++```
++
++## list
++```c++
++template <typename T>
++class MultiDimension : public MVariable {
++public:
++    ...
++    // Put all stats labels into `names'
++    void list_stats(std::vector<std::list<std::string> >* names);
++};
++```
++
++### list_stats
++获取一个多维度统计项下所有labels组合列表
++
++```c++
++#include <bvar/bvar.h>
++#include <bvar/multi_dimension.h>
++
++namespace foo {
++namespace bar {
++// 定义一个全局的多维度mbvar变量
++bvar::MultiDimension<bvar::Adder<int> > g_request_count("request_count", {"idc", "method", "status"});
++
++size_t list_stats(std::vector<std::list<std::string> > *stats_names) {
++    if (!stats_names) {
++        return -1;
++    }
++
++    // clear
++    stats_names.clear();
++
++    // 获取request1对应的单维度mbvar指针，假设request1_labels = {"tc", "get", "200"}
++    bvar::Adder<int> *request1_adder = g_request_count.get_stats(request1_labels);
++    // 判断指针非空
++    if (!request1_adder) {
++        return -1;
++    }
++
++    // 获取request2对应的单维度mbvar指针，假设request2_labels = {"nj", "get", "200"}
++    bvar::Adder<int> *request2_adder = g_request_count.get_stats(request2_labels);
++    // 判断指针非空
++    if (!request2_adder) {
++        return -1;
++    }
++
++    g_request_count.list_stats(stats_names);
++    // labels_names：
++    // [
++    //      {"tc", "get", "200"},
++    //      {"nj", "get", "200"}
++    // ]
++
++    CHECK_EQ(2, stats_names.size());
++    return stats_names.size();
++}
++
++} // namespace bar
++} // namespace foo
++```
++
++**使用说明**
++
++一般情况下用户不需要获取labels组合列表，如果有特殊需求，也不建议频繁调用，否则可能影响get_stats的写入性能。
++
++## template
++
++### bvar::Adder
++顾名思义，用于累加
++```c++
++#include <bvar/bvar.h>
++#include <bvar/multi_dimension.h>
++
++namespace foo {
++namespace bar {
++// 定义一个全局的多维度mbvar变量
++bvar::MultiDimension<bvar::Adder<int> > g_request_cost("request_count", {"idc", "method", "status"});
++
++int request_cost_total(const std::list<std::string>& request_labels) {
++    // 获取request对应的单维度mbvar指针，假设request_labels = {"tc", "get", "200"}
++    bvar::Adder<int>* cost_add = g_request_cost.get_stats(request_labels);
++    // 判断指针非空
++    if (!cost_add) {
++        return -1;
++    }
++    // cost_add只能在g_request_cost生命周期内访问，否则行为未定义，可能会出core
++    *cost_add << 1 << 2 << 3 << 4;
++    CHECK_EQ(10, cost_add->get_value());
++    return cost_add->get_value();
++}
++
++} // namespace bar
++} // namespace foo
++```
++
++### bvar::Maxer
++用于取最大值，运算符为std::max
++```c++
++#include <bvar/bvar.h>
++#include <bvar/multi_dimension.h>
++
++namespace foo {
++namespace bar {
++// 定义一个全局的多维度mbvar变量
++bvar::MultiDimension<bvar::Maxer<int> > g_request_cost("request_cost", {"idc", "method", "status"});
++
++int request_cost_max(const std::list<std::string>& request_labels) {
++    // 获取request对应的单维度mbvar指针，假设request_labels = {"tc", "get", "200"}
++    bvar::Maxer<int>* cost_max = g_request_cost.get_stats(request_labels);
++    // 判断指针非空
++    if (!cost_max) {
++        return -1;
++    }
++
++    // cost_max只能在g_request_cost生命周期内访问，否则行为未定义，可能会出core
++    *cost_max << 1 << 2 << 3 << 4;
++    CHECK_EQ(4, cost_max->get_value());
++    return cost_max->get_value();
++}
++
++} // namespace bar
++} // namespace foo
++```
++
++### bvar::Miner
++用于取最小值，运算符为std::min
++```c++
++#include <bvar/bvar.h>
++#include <bvar/multi_dimension.h>
++
++namespace foo {
++namespace bar {
++// 定义一个全局的多维度mbvar变量
++bvar::MultiDimension<bvar::Miner<int> > g_request_cost("request_cost", {"idc", "method", "status"});
++
++int request_cost_min(const std::list<std::string>& request_labels) {
++    // 获取request对应的单维度mbvar指针，假设request_labels = {"tc", "get", "200"}
++    bvar::Miner<int>* cost_min = g_request_cost.get_stats(request_labels);
++    // 判断指针非空
++    if (!cost_min) {
++        return -1;
++    }
++
++    // cost_min只能在g_request_cost生命周期内访问，否则行为未定义，可能会出core
++    *cost_min << 1 << 2 << 3 << 4;
++    CHECK_EQ(1, cost_min->get_value());
++    return cost_min->get_value();
++}
++
++} // namespace bar
++} // namespace foo
++```
++
++### bvar::IntRecorder
++用于计算平均值。
++```c++
++#include <bvar/bvar.h>
++#include <bvar/multi_dimension.h>
++
++namespace foo {
++namespace bar {
++// 定义一个全局的多维度mbvar变量
++bvar::MultiDimension<bvar::IntRecorder> g_request_cost("request_cost", {"idc", "method", "status"});
++
++int request_cost_avg(const std::list<std::string>& request_labels) {
++    // 获取request对应的单维度mbvar指针，假设request_labels = {"tc", "get", "200"}
++    bvar::IntRecorder* cost_avg = g_request_cost.get_stats(request_labels);
++    // 判断指针非空
++    if (!cost_avg) {
++        return -1;
++    }
++
++    // cost_avg只能在g_request_cost生命周期内访问，否则行为未定义，可能会出core
++    *cost_avg << 1 << 3 << 5;
++    CHECK_EQ(3, cost_avg->get_value());
++    return cost_avg->get_value();
++}
++
++} // namespace bar
++} // namespace foo
++```
++
++### bvar::LatencyRecorder
++专用于计算latency和qps的计数器。只需填入latency数据，就能获取latency / max_latency / qps / count，统计窗口是bvar_dump_interval。
++```c++
++#include <bvar/bvar.h>
++#include <bvar/multi_dimension.h>
++
++namespace foo {
++namespace bar {
++// 定义一个全局的多维度mbvar变量
++bvar::MultiDimension<bvar::LatencyRecorder> g_request_cost("request_cost", {"idc", "method", "status"});
++
++void request_cost_latency(const std::list<std::string>& request_labels) {
++    // 获取request对应的单维度mbvar指针，假设request_labels = {"tc", "get", "200"}
++    bvar::LatencyRecorder* cost_latency = g_request_cost.get_stats(request_labels);
++    // 判断指针非空
++    if (!cost_latency) {
++        return -1;
++    }
++
++    // cost_latency只能在g_request_cost生命周期内访问，否则行为未定义，可能会出core
++    *cost_latency << 1 << 2 << 3 << 4 << 5 << 6 << 7;
++
++    // 获取latency
++    int64_t request_cost_latency = cost_latency->latency();
++    // 获取max_latency
++    int64_t request_cost_max_latency = cost_latency->max_latency();
++    // 获取qps
++    int64_t request_cost_qps = cost_latency->qps();
++    // 获取count
++    int64_t request_cost_count = cost_latency->count();
++}
++
++} // namespace bar
++} // namespace foo
++```
++
++### bvar::Status
++记录和显示一个值，拥有额外的set_value函数。
++```c++
++#include <bvar/bvar.h>
++#include <bvar/multi_dimension.h>
++
++namespace foo {
++namespace bar {
++// 定义一个全局的多维度mbvar变量
++bvar::MultiDimension<bvar::Status<int> > g_request_cost("request_cost", {"idc", "method", "status"});
++
++void request_cost(const std::list<std::string>& request_labels) {
++    // 获取request对应的单维度mbvar指针，假设request_labels = {"tc", "get", "200"}
++    bvar::Status<int>* cost_status = g_request_cost.get_stats(request_labels);
++    // 判断指针非空
++    if (!cost_status) {
++        return -1;
++    }
++
++    // cost_status只能在g_request_cost生命周期内访问，否则行为未定义，可能会出core
++    cost_status->set_value(5);
++    CHECK_EQ(5, cost_status->get_value());
++}
++
++} // namespace bar
++} // namespace foo
++```
 diff --git a/src/brpc/acceptor.cpp b/src/brpc/acceptor.cpp
 index 0e12751..d094ef2 100644
 --- a/src/brpc/acceptor.cpp
@@ -1131,7 +1911,7 @@ index e48441e..2e39437 100644
  #include "brpc/log.h"
  #include "brpc/socket.h"
 diff --git a/src/brpc/thrift_message.h b/src/brpc/thrift_message.h
-index a152b16..0d6a492 100644
+index a152b16..3bea5cf 100644
 --- a/src/brpc/thrift_message.h
 +++ b/src/brpc/thrift_message.h
 @@ -84,6 +84,13 @@ public:
@@ -2730,6 +3510,925 @@ index ed91422..7831d63 100644
  
  namespace bvar {
  
+diff --git a/src/bvar/multi_dimension.h b/src/bvar/multi_dimension.h
+new file mode 100644
+index 0000000..c9cc9a3
+--- /dev/null
++++ b/src/bvar/multi_dimension.h
+@@ -0,0 +1,140 @@
++// Licensed to the Apache Software Foundation (ASF) under one
++// or more contributor license agreements.  See the NOTICE file
++// distributed with this work for additional information
++// regarding copyright ownership.  The ASF licenses this file
++// to you under the Apache License, Version 2.0 (the
++// "License"); you may not use this file except in compliance
++// with the License.  You may obtain a copy of the License at
++//
++//   http://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing,
++// software distributed under the License is distributed on an
++// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
++// KIND, either express or implied.  See the License for the
++// specific language governing permissions and limitations
++// under the License.
++
++// Date: 2021/11/17 10:57:43
++
++#ifndef BVAR_MULTI_DIMENSION_H
++#define BVAR_MULTI_DIMENSION_H
++
++#include "butil/logging.h"                           // LOG
++#include "butil/macros.h"                            // BAIDU_CASSERT
++#include "butil/scoped_lock.h"                       // BAIDU_SCOPE_LOCK
++#include "butil/containers/doubly_buffered_data.h"   // DBD
++#include "butil/containers/flat_map.h"               // butil::FlatMap
++#include "bvar/mvariable.h"
++
++namespace bvar {
++
++constexpr uint64_t MAX_MULTI_DIMENSION_STATS_COUNT = 20000;
++
++template <typename  T>
++class MultiDimension : public MVariable {
++public:
++
++    enum STATS_OP {
++        READ_ONLY,
++        READ_OR_INSERT,
++    };
++
++    typedef MVariable Base;
++    typedef std::list<std::string> key_type;
++    typedef T value_type;
++    typedef T* value_ptr_type;
++
++    struct KeyHash {
++        size_t operator() (const key_type& key) const {
++            size_t hash_value = 0;
++            for (auto &k : key) {
++                hash_value += std::hash<std::string>()(k);
++            }
++            return hash_value;
++        }
++    };
++    
++    typedef value_ptr_type op_value_type;
++    typedef typename butil::FlatMap<key_type, op_value_type, KeyHash> MetricMap;
++
++    typedef typename MetricMap::const_iterator MetricMapConstIterator;
++    typedef typename butil::DoublyBufferedData<MetricMap> MetricMapDBD;
++    typedef typename MetricMapDBD::ScopedPtr MetricMapScopedPtr;
++    
++    explicit MultiDimension(const key_type& labels);
++    
++    MultiDimension(const butil::StringPiece& name,
++                   const key_type& labels);
++    
++    MultiDimension(const butil::StringPiece& prefix,
++                   const butil::StringPiece& name,
++                   const key_type& labels);
++
++    ~MultiDimension();
++
++    // Implement this method to print the variable into ostream.
++    void describe(std::ostream& os);
++
++    // Dump real bvar pointer 
++    size_t dump(Dumper* dumper, const DumpOptions* options);
++
++    // Get real bvar pointer object
++    // Return real bvar pointer on success, NULL otherwise.
++    T* get_stats(const key_type& labels_value) {
++        return get_stats_impl(labels_value, READ_OR_INSERT);
++    }
++
++    // Get number of stats
++    size_t count_stats();
++
++    // Put name of all stats label into `names'
++    void list_stats(std::vector<key_type>* names);
++    
++#ifdef UNIT_TEST
++    // Get real bvar pointer object 
++    // Return real bvar pointer if labels_name exist, NULL otherwise.
++    // CAUTION!!! Just For Debug!!!
++    T* get_stats_read_only(const key_type& labels_value) {
++        return get_stats_impl(labels_value, READ_ONLY);
++    }
++
++    // Get real bvar pointer object 
++    // Return real bvar pointer if labels_name exist, otherwise(not exist) create bvar pointer.
++    // CAUTION!!! Just For Debug!!!
++    T* get_stats_read_or_insert(const key_type& labels_value, bool* do_write = NULL) {
++        return get_stats_impl(labels_value, READ_OR_INSERT, do_write);
++    }
++
++    // Remove all stats so those not count and dump
++    // CAUTION!!! Just For Debug!!!
++    void delete_stats(const key_type& labels_value);
++#endif
++
++private:
++    T* get_stats_impl(const key_type& labels_value, STATS_OP stats_op = READ_ONLY, bool* do_write = NULL);
++
++    void make_dump_key(std::ostream& os, 
++                       const key_type& labels_value, 
++                       const std::string& suffix = "", 
++                       const int quantile = 0);
++
++    void make_labels_kvpair_string(std::ostream& os, 
++                       const key_type& labels_value, 
++                       const int quantile);
++
++    bool is_valid_lables_value(const key_type& labels_value) const;
++    
++    void delete_stats();
++    
++    static size_t init_flatmap(MetricMap& bg);
++    
++private:
++    MetricMapDBD _metric_map;
++};
++
++} // namespace bvar
++
++#include "bvar/multi_dimension_inl.h"
++
++#endif // BVAR_MULTI_DIMENSION_H
+\ No newline at end of file
+diff --git a/src/bvar/multi_dimension_inl.h b/src/bvar/multi_dimension_inl.h
+new file mode 100644
+index 0000000..80b1cdd
+--- /dev/null
++++ b/src/bvar/multi_dimension_inl.h
+@@ -0,0 +1,376 @@
++// Licensed to the Apache Software Foundation (ASF) under one
++// or more contributor license agreements.  See the NOTICE file
++// distributed with this work for additional information
++// regarding copyright ownership.  The ASF licenses this file
++// to you under the Apache License, Version 2.0 (the
++// "License"); you may not use this file except in compliance
++// with the License.  You may obtain a copy of the License at
++//
++//   http://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing,
++// software distributed under the License is distributed on an
++// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
++// KIND, either express or implied.  See the License for the
++// specific language governing permissions and limitations
++// under the License.
++
++// Date: 2021/11/17 10:57:43
++
++#ifndef BVAR_MULTI_DIMENSION_INL_H
++#define BVAR_MULTI_DIMENSION_INL_H
++
++#include <gflags/gflags_declare.h>
++
++namespace bvar {
++
++DECLARE_int32(bvar_latency_p1);
++DECLARE_int32(bvar_latency_p2);
++DECLARE_int32(bvar_latency_p3);
++
++static const std::string ALLOW_UNUSED METRIC_TYPE_COUNTER = "counter";
++static const std::string ALLOW_UNUSED METRIC_TYPE_SUMMARY = "summary";
++static const std::string ALLOW_UNUSED METRIC_TYPE_HISTOGRAM = "histogram";
++static const std::string ALLOW_UNUSED METRIC_TYPE_GAUGE = "gauge";
++
++template <typename T>
++inline
++MultiDimension<T>::MultiDimension(const key_type& labels)
++    : Base(labels)
++{
++    _metric_map.Modify(init_flatmap);
++}
++
++template <typename T>
++inline
++MultiDimension<T>::MultiDimension(const butil::StringPiece& name,
++                                  const key_type& labels)
++    : Base(labels)
++{
++    _metric_map.Modify(init_flatmap);
++    this->expose(name);
++}
++
++template <typename T>
++inline
++MultiDimension<T>::MultiDimension(const butil::StringPiece& prefix,
++                                  const butil::StringPiece& name,
++                                  const key_type& labels)
++    : Base(labels)
++{
++    _metric_map.Modify(init_flatmap);
++    this->expose_as(prefix, name);
++}
++
++template <typename T>
++MultiDimension<T>::~MultiDimension() {
++    delete_stats();
++    hide();
++}
++
++template <typename T>
++inline
++size_t MultiDimension<T>::init_flatmap(MetricMap& bg) {
++    // size = 1 << 13
++    CHECK_EQ(0, bg.init(8192, 80));
++    return (size_t)1;
++}
++
++template <typename T>
++inline
++size_t MultiDimension<T>::count_stats() {
++    MetricMapScopedPtr metric_map_ptr;
++    if (_metric_map.Read(&metric_map_ptr) != 0) {
++        LOG(ERROR) << "Fail to read dbd";
++        return 0;
++    }
++    return metric_map_ptr->size();
++}
++
++#ifdef UNIT_TEST
++template <typename T>
++inline
++void MultiDimension<T>::delete_stats(const key_type& labels_value) {
++    if (is_valid_lables_value(labels_value)) {
++        // Because there are two copies(foreground and background) in DBD, we need to use an empty tmp_metric,
++        // get the deleted value of second copy into tmp_metric, which can prevent the bvar object from being deleted twice.
++        op_value_type tmp_metric = NULL;
++        auto fn = [&labels_value, &tmp_metric](MetricMap& bg) {
++            auto it = bg.seek(labels_value);
++            if (it != NULL) {
++                tmp_metric = *it;
++                bg.erase(labels_value);
++                return 1;
++            }
++            return 0;
++        };
++        _metric_map.Modify(fn);
++        if (tmp_metric) {
++            delete tmp_metric;
++        }
++    }
++}
++#endif // end UNIT_TEST
++
++template <typename T>
++inline
++void MultiDimension<T>::delete_stats() {
++    // Because there are two copies(foreground and background) in DBD, we need to use an empty tmp_map,
++    // swap two copies with empty, and get the value of second copy into tmp_map,
++    // then traversal tmp_map and delete bvar object,
++    // which can prevent the bvar object from being deleted twice.
++    MetricMap tmp_map;
++    auto fn = [&tmp_map](MetricMap& map) {
++        if (!tmp_map.empty()) {
++            tmp_map.clear();
++        }
++        tmp_map.swap(map);
++        return (size_t)1;
++    };
++    int ret = _metric_map.Modify(fn);
++    CHECK_EQ(1, ret);
++    for (auto &kv : tmp_map) {
++        delete kv.second;
++    }
++}
++
++template <typename T>
++inline
++void MultiDimension<T>::list_stats(std::vector<key_type>* names) {
++    if (names == NULL) {
++        return;
++    }
++    names->clear();
++    MetricMapScopedPtr metric_map_ptr;
++    if (_metric_map.Read(&metric_map_ptr) != 0) {
++        LOG(ERROR) << "Fail to read dbd";
++        return;
++    }
++    names->reserve(metric_map_ptr->size());
++    for (auto it = metric_map_ptr->begin(); it != metric_map_ptr->end(); ++it) {
++        names->push_back(it->first);
++    }
++}
++
++template <typename T>
++inline
++T* MultiDimension<T>::get_stats_impl(const key_type& labels_value, STATS_OP stats_op, bool* do_write) {
++    if (!is_valid_lables_value(labels_value)) {
++        return nullptr;
++    }
++    {
++        MetricMapScopedPtr metric_map_ptr;
++        if (_metric_map.Read(&metric_map_ptr) != 0) {
++            LOG(ERROR) << "Fail to read dbd";
++            return nullptr;
++        }
++
++        auto it = metric_map_ptr->seek(labels_value);
++        if (it != NULL) {
++            return (*it);
++        } else if (READ_ONLY == stats_op) {
++            return nullptr;
++        }
++
++        if (metric_map_ptr->size() > MAX_MULTI_DIMENSION_STATS_COUNT) {
++            LOG(ERROR) << "Too many stats seen, overflow detected, max stats count:" << MAX_MULTI_DIMENSION_STATS_COUNT;
++            return nullptr;
++        }
++    }
++
++    // Because DBD has two copies(foreground and background) MetricMap, both copies need to be modify,
++    // In order to avoid new duplicate bvar object, need use cache_metric to cache the new bvar object,
++    // In this way, when modifying the second copy, can directly use the cache_metric bvar object.
++    op_value_type cache_metric = NULL;
++    auto fn = [&labels_value, &cache_metric, &do_write](MetricMap& bg) {
++        auto bg_metric = bg.seek(labels_value);
++        if (NULL != bg_metric) {
++            cache_metric = *bg_metric;
++            return 0;
++        }
++        if (do_write) {
++            *do_write = true;
++        }
++        if (NULL != cache_metric) {
++            bg[labels_value] = cache_metric;
++            // bg.insert({labels_value, cache_metric});
++        } else {
++            T* add_metric = new T();
++            bg[labels_value] = add_metric;
++            // bg.insert({labels_value, add_metric});
++            cache_metric = add_metric;
++        }
++        return 1;
++    };
++    _metric_map.Modify(fn);
++    return cache_metric;
++}
++
++template <typename T>
++inline
++size_t MultiDimension<T>::dump(Dumper* dumper, const DumpOptions* options) {
++    std::vector<key_type> label_names;
++    list_stats(&label_names);
++    if (label_names.empty() || !dumper->dump_comment(name(), METRIC_TYPE_GAUGE)) {
++        return 0;
++    }
++    size_t n = 0;
++    for (auto &label_name : label_names) {
++        T* bvar = get_stats_impl(label_name);
++        if (!bvar) {
++            continue;
++        }
++        std::ostringstream oss;
++        bvar->describe(oss, options->quote_string);
++        std::ostringstream oss_key;
++        make_dump_key(oss_key, label_name);
++        if (!dumper->dump(oss_key.str(), oss.str())) {
++            continue;
++        }
++        n++;
++    }
++    return n;
++}
++
++template <>
++inline
++size_t MultiDimension<bvar::LatencyRecorder>::dump(Dumper* dumper, const DumpOptions*) {
++    std::vector<key_type> label_names;
++    list_stats(&label_names);
++    if (label_names.empty()) {
++        return 0;
++    }
++    size_t n = 0;
++    for (auto &label_name : label_names) {
++        bvar::LatencyRecorder* bvar = get_stats_impl(label_name);
++        if (!bvar) {
++            continue;
++        }
++
++        // latency comment
++        if (!dumper->dump_comment(name() + "_latency", METRIC_TYPE_GAUGE)) {
++            continue;
++        }
++        // latency
++        std::ostringstream oss_latency_key;
++        make_dump_key(oss_latency_key, label_name, "_latency");
++        if (dumper->dump(oss_latency_key.str(), std::to_string(bvar->latency()))) {
++            n++;
++        }
++        // latency_percentiles
++        // p1/p2/p3
++        int latency_percentiles[3] {FLAGS_bvar_latency_p1, FLAGS_bvar_latency_p2, FLAGS_bvar_latency_p3};
++        for (auto lp : latency_percentiles) {
++            std::ostringstream oss_lp_key;
++            make_dump_key(oss_lp_key, label_name, "_latency", lp);
++            if (dumper->dump(oss_lp_key.str(), std::to_string(bvar->latency_percentile(lp / 100.0)))) {
++                n++;
++            }
++        }
++        // 999
++        std::ostringstream oss_p999_key;
++        make_dump_key(oss_p999_key, label_name, "_latency", 999);
++        if (dumper->dump(oss_p999_key.str(), std::to_string(bvar->latency_percentile(0.999)))) {
++            n++;
++        }
++        // 9999
++        std::ostringstream oss_p9999_key;
++        make_dump_key(oss_p9999_key, label_name, "_latency", 9999);
++        if (dumper->dump(oss_p9999_key.str(), std::to_string(bvar->latency_percentile(0.9999)))) {
++            n++;
++        }
++
++        // max_latency comment
++        if (!dumper->dump_comment(name() + "_max_latency", METRIC_TYPE_GAUGE)) {
++            continue;
++        }
++        // max_latency
++        std::ostringstream oss_max_latency_key;
++        make_dump_key(oss_max_latency_key, label_name, "_max_latency");
++        if (dumper->dump(oss_max_latency_key.str(), std::to_string(bvar->max_latency()))) {
++            n++;
++        }
++        
++        // qps comment
++        if (!dumper->dump_comment(name() + "_qps", METRIC_TYPE_GAUGE)) {
++            continue;
++        }
++        // qps
++        std::ostringstream oss_qps_key;
++        make_dump_key(oss_qps_key, label_name, "_qps");
++        if (dumper->dump(oss_qps_key.str(), std::to_string(bvar->qps()))) {
++            n++;
++        }
++
++        // qps comment
++        if (!dumper->dump_comment(name() + "_count", METRIC_TYPE_COUNTER)) {
++            continue;
++        }
++        // count
++        std::ostringstream oss_count_key;
++        make_dump_key(oss_count_key, label_name, "_count");
++        if (dumper->dump(oss_count_key.str(), std::to_string(bvar->count()))) {
++            n++;
++        }
++    }
++    return n;
++}
++
++template <typename T>
++inline
++void MultiDimension<T>::make_dump_key(std::ostream& os, 
++                                      const key_type& labels_value,
++                                      const std::string& suffix,
++                                      const int quantile) {
++    os << name();
++    if (!suffix.empty()) {
++        os << suffix;
++    }
++    make_labels_kvpair_string(os, labels_value, quantile);
++}
++
++template <typename T>
++inline
++void MultiDimension<T>::make_labels_kvpair_string(std::ostream& os, 
++                                                  const key_type& labels_value, 
++                                                  const int quantile) {
++    os << "{";
++    auto label_key = _labels.cbegin();
++    auto label_value = labels_value.cbegin();
++    char comma[2] = {'\0', '\0'};
++    for (; label_key != _labels.cend() && label_value != labels_value.cend();
++        label_key++, label_value++) {
++        os << comma << label_key->c_str() << "=\"" << label_value->c_str() << "\"";
++        comma[0] = ',';
++    }
++    if (quantile > 0) {
++        os << ",quantile=\"" << quantile << "\"";
++    }
++    os << "}";
++}
++
++template <typename T>
++inline
++bool MultiDimension<T>::is_valid_lables_value(const key_type& labels_value) const {
++    if (count_labels() != labels_value.size()) {
++        LOG(ERROR) << "Invalid labels count";
++        return false;
++    }
++    return true;
++}
++
++template <typename T>
++inline
++void MultiDimension<T>::describe(std::ostream& os) {
++    os << "{\"name\" : \"" << _name << "\", \"labels\" : [";
++    char comma[3] = {'\0', ' ', '\0'};
++    for (auto &label : _labels) {
++        os << comma << "\"" << label << "\"";
++        comma[0] = ',';
++    }
++    os << "], \"stats_count\" : " << count_stats() <<  "}";
++}
++
++} // namespace bvar
++
++#endif // BVAR_MULTI_DIMENSION_INL_H
+diff --git a/src/bvar/mvariable.cpp b/src/bvar/mvariable.cpp
+new file mode 100644
+index 0000000..faac802
+--- /dev/null
++++ b/src/bvar/mvariable.cpp
+@@ -0,0 +1,253 @@
++// Licensed to the Apache Software Foundation (ASF) under one
++// or more contributor license agreements.  See the NOTICE file
++// distributed with this work for additional information
++// regarding copyright ownership.  The ASF licenses this file
++// to you under the Apache License, Version 2.0 (the
++// "License"); you may not use this file except in compliance
++// with the License.  You may obtain a copy of the License at
++//
++//   http://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing,
++// software distributed under the License is distributed on an
++// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
++// KIND, either express or implied.  See the License for the
++// specific language governing permissions and limitations
++// under the License.
++
++// Date: 2021/11/17 14:37:53
++
++#include <gflags/gflags.h>
++#include <gflags/gflags_declare.h>
++#include "butil/logging.h"                       // LOG
++#include "butil/errno.h"                         // berror
++#include "butil/containers/flat_map.h"           // butil::FlatMap
++#include "butil/scoped_lock.h"                   // BAIDU_SCOPE_LOCK
++#include "butil/file_util.h"                     // butil::FilePath
++#include "bvar/variable.h"
++#include "bvar/mvariable.h"
++
++namespace bvar {
++
++constexpr uint64_t MAX_LABELS_COUNT = 10;
++
++DECLARE_bool(bvar_abort_on_same_name);
++
++extern bool s_bvar_may_abort;
++
++DEFINE_int32(bvar_max_multi_dimension_metric_number, 1024, "Max number of multi dimension");
++
++static bool validator_bvar_max_multi_dimension_metric_number(const char*, int32_t v) {
++    if (v < 1) {
++        LOG(ERROR) << "Invalid bvar_max_multi_dimension_metric_number=" << v;
++        return false;
++    }
++    return true;
++}
++
++const bool ALLOW_UNUSED dummp_bvar_max_multi_dimension_metric_number = ::GFLAGS_NS::RegisterFlagValidator(
++    &FLAGS_bvar_max_multi_dimension_metric_number, validator_bvar_max_multi_dimension_metric_number);
++
++class MVarEntry {
++public:
++    MVarEntry() : var(NULL) {}
++
++    MVariable* var;
++};
++
++typedef butil::FlatMap<std::string, MVarEntry> MVarMap;
++
++struct MVarMapWithLock : public MVarMap {
++    pthread_mutex_t mutex;
++
++    MVarMapWithLock() {
++        CHECK_EQ(0, init(256, 80));
++        pthread_mutex_init(&mutex, NULL);
++    }
++};
++
++// We have to initialize global map on need because bvar is possibly used
++// before main().
++static pthread_once_t s_mvar_map_once = PTHREAD_ONCE_INIT;
++static MVarMapWithLock* s_mvar_map = NULL;
++
++static void init_mvar_map() {
++    // It's probably slow to initialize all sub maps, but rpc often expose 
++    // variables before user. So this should not be an issue to users.
++    s_mvar_map = new MVarMapWithLock();
++}
++
++inline MVarMapWithLock& get_mvar_map() {
++    pthread_once(&s_mvar_map_once, init_mvar_map);
++    return *s_mvar_map;
++}
++
++MVariable::MVariable(const std::list<std::string>& labels) {
++    _labels.assign(labels.begin(), labels.end());
++    size_t n = labels.size();
++    if (n > MAX_LABELS_COUNT) {
++        LOG(ERROR) << "Too many labels: " << n << " seen, overflow detected, max labels count: " << MAX_LABELS_COUNT;
++        _labels.resize(MAX_LABELS_COUNT);
++    }
++}
++
++MVariable::~MVariable() {
++    CHECK(!hide()) << "Subclass of MVariable MUST call hide() manually in their"
++    " dtors to avoid displaying a variable that is just destructing";
++}
++
++std::string MVariable::get_description() {
++    std::ostringstream os;
++    describe(os);
++    return os.str();
++}
++
++int MVariable::describe_exposed(const std::string& name,
++                                std::ostream& os) {
++    MVarMapWithLock& m = get_mvar_map();
++    BAIDU_SCOPED_LOCK(m.mutex);
++    MVarEntry* entry = m.seek(name);
++    if (entry == NULL) {
++        return -1;
++    }
++    entry->var->describe(os);
++    return 0;
++}
++
++std::string MVariable::describe_exposed(const std::string& name) {
++    std::ostringstream oss;
++    if (describe_exposed(name, oss) == 0) {
++        return oss.str();
++    }
++    return std::string();
++}
++
++int MVariable::expose_impl(const butil::StringPiece& prefix,
++                           const butil::StringPiece& name) {
++    if (name.empty()) {
++        LOG(ERROR) << "Parameter[name] is empty";
++        return -1;
++    }
++    // NOTE: It's impossible to atomically erase from a submap and insert into
++    // another submap without a global lock. When the to-be-exposed name
++    // already exists, there's a chance that we can't insert back previous
++    // name. But it should be fine generally because users are unlikely to
++    // expose a variable more than once and calls to expose() are unlikely
++    // to contend heavily.
++
++    // remove previous pointer from the map if needed.
++    hide();
++    
++    // Build the name.
++    _name.clear();
++    _name.reserve((prefix.size() + name.size()) * 5 / 4);
++    if (!prefix.empty()) {
++        to_underscored_name(&_name, prefix);
++        if (!_name.empty() && butil::back_char(_name) != '_') {
++            _name.push_back('_');
++        }     
++    }
++    to_underscored_name(&_name, name);
++   
++    if (count_exposed() > (size_t)FLAGS_bvar_max_multi_dimension_metric_number) {
++        LOG(ERROR) << "Too many metric seen, overflow detected, max metric count:" << FLAGS_bvar_max_multi_dimension_metric_number;
++        return -1;
++    }
++
++    MVarMapWithLock& m = get_mvar_map();
++    {
++        BAIDU_SCOPED_LOCK(m.mutex);
++        MVarEntry* entry = m.seek(_name);
++        if (entry == NULL) {
++            entry = &m[_name];
++            entry->var = this;
++            return 0;
++        }
++    }
++
++    if (FLAGS_bvar_abort_on_same_name) {
++        LOG(FATAL) << "Abort due to name conflict";
++        abort();
++    } else if (!s_bvar_may_abort) {
++        // Mark name conflict occurs, If this conflict happens before
++        // initialization of bvar_abort_on_same_name, the validator will
++        // abort the program if needed.
++        s_bvar_may_abort = true;
++    }
++
++    LOG(FATAL) << "Already exposed `" << _name << "' whose describe is`"
++               << get_description() << "'";
++    _name.clear();
++    return 0;
++}
++
++bool MVariable::hide() {
++    if (_name.empty()) {
++        return false;
++    }
++
++    MVarMapWithLock& m = get_mvar_map();
++    BAIDU_SCOPED_LOCK(m.mutex);
++    MVarEntry* entry = m.seek(_name);
++    if (entry) {
++        CHECK_EQ(1UL, m.erase(_name));
++    } else {
++        CHECK(false) << "`" << _name << "' must exist";
++    }
++    _name.clear();
++    return true;
++}
++
++#ifdef UNIT_TEST
++void MVariable::hide_all() {
++    MVarMapWithLock& m = get_mvar_map();
++    BAIDU_SCOPED_LOCK(m.mutex);
++    m.clear();
++}
++#endif // end UNIT_TEST
++
++size_t MVariable::count_exposed() {
++    MVarMapWithLock& m = get_mvar_map();
++    BAIDU_SCOPED_LOCK(m.mutex);
++    return m.size();
++}
++
++void MVariable::list_exposed(std::vector<std::string>* names) {
++    if (names == NULL) {
++        return;
++    }
++
++    names->clear();
++
++    MVarMapWithLock& mvar_map = get_mvar_map();
++    BAIDU_SCOPED_LOCK(mvar_map.mutex);
++    names->reserve(mvar_map.size());
++    for (MVarMap::const_iterator it = mvar_map.begin(); it != mvar_map.end(); ++it) {
++        names->push_back(it->first);
++    }
++}
++
++size_t MVariable::dump_exposed(Dumper* dumper, const DumpOptions* options) {
++    if (NULL == dumper) {
++        LOG(ERROR) << "Parameter[dumper] is NULL";
++        return -1;
++    }
++    DumpOptions opt;
++    if (options) {
++        opt = *options;
++    }
++    std::vector<std::string> mvars;
++    list_exposed(&mvars);
++    size_t n = 0;
++    for (auto mvar : mvars) {
++        MVarMapWithLock& m = get_mvar_map();
++        BAIDU_SCOPED_LOCK(m.mutex);
++        MVarEntry* entry = m.seek(mvar);
++        if (entry) {
++            n += entry->var->dump(dumper, &opt);
++        }
++    }
++    return n;
++}
++
++} // namespace bvar
+diff --git a/src/bvar/mvariable.h b/src/bvar/mvariable.h
+new file mode 100644
+index 0000000..28a3260
+--- /dev/null
++++ b/src/bvar/mvariable.h
+@@ -0,0 +1,125 @@
++// Licensed to the Apache Software Foundation (ASF) under one
++// or more contributor license agreements.  See the NOTICE file
++// distributed with this work for additional information
++// regarding copyright ownership.  The ASF licenses this file
++// to you under the Apache License, Version 2.0 (the
++// "License"); you may not use this file except in compliance
++// with the License.  You may obtain a copy of the License at
++//
++//   http://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing,
++// software distributed under the License is distributed on an
++// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
++// KIND, either express or implied.  See the License for the
++// specific language governing permissions and limitations
++// under the License.
++
++// Date: 2021/11/17 14:37:53
++
++#ifndef BVAR_MVARIABLE_H
++#define BVAR_MVARIABLE_H
++
++#include <ostream>                      // std::ostream
++#include <sstream>                      // std::ostringstream
++#include <list>                         // std::list
++#include <string>                       // std::string
++#include "butil/macros.h"               // DISALLOW_COPY_AND_ASSIGN
++#include "butil/strings/string_piece.h" // butil::StringPiece
++
++namespace bvar {
++
++class Dumper;
++class DumpOptions;
++
++class MVariable {
++public:
++    explicit MVariable(const std::list<std::string>& labels);
++
++    virtual ~MVariable();
++
++    // Implement this method to print the mvariable info into ostream.
++    virtual void describe(std::ostream&) = 0;
++
++    // string form of describe().
++    std::string get_description();
++   
++    // Get mvariable name
++    const std::string& name() const { return _name; }
++    
++    // Get mvariable labels
++    const std::list<std::string>& labels() const { return _labels; }
++
++    // Get number of mvariable labels
++    size_t count_labels() const { return _labels.size(); }
++
++    // Expose this mvariable globally so that it's counted in following
++    // functions:
++    //      list_exposed
++    //      count_exposed
++    // Return 0 on success, -1 otherwise.
++    int expose(const butil::StringPiece& name) {
++        return expose_impl(butil::StringPiece(), name);
++    }
++
++    // Expose this mvariable globally with a prefix
++    // Return 0 on success, -1 otherwise.
++    int expose_as(const butil::StringPiece& prefix,
++                  const butil::StringPiece& name) {
++        return expose_impl(prefix, name);
++    }
++
++    // Dump this mvariable
++    virtual size_t dump(Dumper* dumper, const DumpOptions* options) = 0;
++
++    // Hide this variable so that it's not counted in *_exposed functions.
++    // Returns false if this variable is already hidden.
++    // CAUTION!! Subclasses must call hide() manually to avoid displaying
++    // a variable that is just destructing.
++    bool hide();
++
++    // Get number of exposed mvariables.
++    static size_t count_exposed();
++
++    // Put names of all exposed mvariable into `name'.
++    static void list_exposed(std::vector<std::string> *names);
++
++    // Find all exposed mvariables matching `white_wildcards' but
++    // `black_wildcards' and send them to `dumper'.
++    // Use default options when `options' is NULL.
++    // Return number of dumped mvariables, -1 on error.
++    static size_t dump_exposed(Dumper* dumper, const DumpOptions* options);
++
++    // Find an exposed mvariable by `name' and put its description into `os'.
++    // Returns 0 on found, -1 otherwise.
++    static int describe_exposed(const std::string& name,
++                                std::ostream& os);
++
++    // String form. Returns empty string when not found.
++    static std::string describe_exposed(const std::string& name);
++
++#ifdef UNIT_TEST
++    // Hide all mvariables so that all mvariables not counted in following
++    // functions:
++    //      list_exposed
++    //      count_exposed
++    // CAUTION!!! Just For Debug!!!
++    static void hide_all();
++#endif
++
++protected:
++    int expose_impl(const butil::StringPiece& prefix,
++                            const butil::StringPiece& name);
++
++protected:
++    std::string _name;
++    std::list<std::string>  _labels;
++
++    // mbvar uses bvar, bvar uses TLS, thus copying/assignment need to copy TLS stuff as well,
++    // which is heavy. We disable copying/assignment now. 
++    DISALLOW_COPY_AND_ASSIGN(MVariable);
++};
++
++} // namespace bvar
++
++#endif  // BVAR_MVARIABLE_H
 diff --git a/src/bvar/passive_status.h b/src/bvar/passive_status.h
 index eb4900d..8c6e361 100644
 --- a/src/bvar/passive_status.h
@@ -2847,17 +4546,241 @@ index f41024a..6a9b154 100644
  #else
          return pthread_mutex_destroy(mutex) == 0;
 diff --git a/src/bvar/variable.cpp b/src/bvar/variable.cpp
-index d9f7273..b8c7a6a 100644
+index d9f7273..15cdf30 100644
 --- a/src/bvar/variable.cpp
 +++ b/src/bvar/variable.cpp
-@@ -31,6 +31,7 @@
+@@ -31,6 +31,8 @@
  #include "butil/file_util.h"                     // butil::FilePath
  #include "bvar/gflag.h"
  #include "bvar/variable.h"
 +#include "butil/logging.h"
++#include "bvar/mvariable.h"
  
  namespace bvar {
  
+@@ -44,7 +46,7 @@ DEFINE_bool(quote_vector, true,
+ DEFINE_bool(bvar_abort_on_same_name, false,
+             "Abort when names of bvar are same");
+ // Remember abort request before bvar_abort_on_same_name is initialized.
+-static bool s_bvar_may_abort = false;
++bool s_bvar_may_abort = false;
+ static bool validate_bvar_abort_on_same_name(const char*, bool v) {
+     if (v && s_bvar_may_abort) {
+         // Name conflict happens before handling args of main(), this is
+@@ -588,7 +590,9 @@ public:
+             _fp = NULL;
+         }
+     }
+-    bool dump(const std::string& name, const butil::StringPiece& desc) override {
++
++protected:
++    bool dump_impl(const std::string& name, const butil::StringPiece& desc, const std::string& separator) {
+         if (_fp == NULL) {
+             butil::File::Error error;
+             butil::FilePath dir = butil::FilePath(_filename).DirName();
+@@ -603,9 +607,10 @@ public:
+                 return false;
+             }
+         }
+-        if (fprintf(_fp, "%.*s%.*s : %.*s\r\n",
++        if (fprintf(_fp, "%.*s%.*s %.*s %.*s\r\n",
+                     (int)_prefix.size(), _prefix.data(),
+                     (int)name.size(), name.data(),
++                    (int)separator.size(), separator.data(),
+                     (int)desc.size(), desc.data()) < 0) {
+             PLOG(ERROR) << "Fail to write into " << _filename;
+             return false;
+@@ -613,12 +618,35 @@ public:
+         return true;
+     }
+ private:
+-
+     std::string _filename;
+     FILE* _fp;
+     std::string _prefix;
+ };
+ 
++class CommonFileDumper : public FileDumper {
++public:
++    CommonFileDumper(const std::string& filename, butil::StringPiece prefix)
++        : FileDumper(filename, prefix)
++        , _separator(":") {}
++    bool dump(const std::string& name, const butil::StringPiece& desc) {
++        return dump_impl(name, desc, _separator);
++    }
++private:
++    std::string _separator;
++};
++
++class PrometheusFileDumper : public FileDumper {
++public:
++    PrometheusFileDumper(const std::string& filename, butil::StringPiece prefix)
++        : FileDumper(filename, prefix)
++        , _separator(" ") {}
++    bool dump(const std::string& name, const butil::StringPiece& desc) {
++        return dump_impl(name, desc, _separator);
++    }
++private:
++    std::string _separator;
++};
++
+ class FileDumperGroup : public Dumper {
+ public:
+     FileDumperGroup(std::string tabs, std::string filename, 
+@@ -632,13 +660,13 @@ public:
+         for (butil::KeyValuePairsSplitter sp(tabs, ';', '='); sp; ++sp) {
+             std::string key = sp.key().as_string();
+             std::string value = sp.value().as_string();
+-            FileDumper *f = new FileDumper(
++            FileDumper *f = new CommonFileDumper(
+                     path.AddExtension(key).AddExtension("data").value(), s);
+             WildcardMatcher *m = new WildcardMatcher(value, '?', true);
+             dumpers.emplace_back(f, m);
+         }
+         dumpers.emplace_back(
+-                    new FileDumper(path.AddExtension("data").value(), s), 
++                    new CommonFileDumper(path.AddExtension("data").value(), s), 
+                     (WildcardMatcher *)NULL);
+     }
+     ~FileDumperGroup() {
+@@ -684,6 +712,13 @@ DEFINE_string(bvar_dump_tabs, "latency=*_latency*"
+               "Dump bvar into different tabs according to the filters (seperated by semicolon), "
+               "format: *(tab_name=wildcards;)");
+ 
++DEFINE_bool(mbvar_dump, false,
++            "Create a background thread dumping(shares the same thread as bvar_dump) all mbvar periodically, "
++            "all mbvar_dump_* flags are not effective when this flag is off");
++DEFINE_string(mbvar_dump_file, "monitor/mbvar.<app>.data", "Dump mbvar into this file");
++DEFINE_string(mbvar_dump_prefix, "<app>", "Every dumped name starts with this prefix");
++DEFINE_string(mbvar_dump_format, "common", "Dump mbvar write format");
++
+ #if !defined(BVAR_NOT_LINK_DEFAULT_VARIABLES)
+ // Expose bvar-releated gflags so that they're collected by noah.
+ // Maybe useful when debugging process of monitoring.
+@@ -696,12 +731,16 @@ static void* dumping_thread(void*) {
+     // destructed when program exits and caused coredumps.
+     const std::string command_name = read_command_name();
+     std::string last_filename;
++    std::string mbvar_last_filename;
+     while (1) {
+         // We can't access string flags directly because it's thread-unsafe.
+         std::string filename;
+         DumpOptions options;
+         std::string prefix;
+         std::string tabs;
++        std::string mbvar_filename;
++        std::string mbvar_prefix;
++        std::string mbvar_format;
+         if (!GFLAGS_NS::GetCommandLineOption("bvar_dump_file", &filename)) {
+             LOG(ERROR) << "Fail to get gflag bvar_dump_file";
+             return NULL;
+@@ -725,6 +764,20 @@ static void* dumping_thread(void*) {
+             return NULL;
+         }
+ 
++        // We can't access string flags directly because it's thread-unsafe.
++        if (!GFLAGS_NS::GetCommandLineOption("mbvar_dump_file", &mbvar_filename)) {
++            LOG(ERROR) << "Fail to get gflag mbvar_dump_file";
++            return NULL;
++        }
++        if (!GFLAGS_NS::GetCommandLineOption("mbvar_dump_prefix", &mbvar_prefix)) {
++            LOG(ERROR) << "Fail to get gflag mbvar_dump_prefix";
++            return NULL;
++        }
++        if (!GFLAGS_NS::GetCommandLineOption("mbvar_dump_format", &mbvar_format)) {
++            LOG(ERROR) << "Fail to get gflag mbvar_dump_format";
++            return NULL;
++        }
++
+         if (FLAGS_bvar_dump && !filename.empty()) {
+             // Replace first <app> in filename with program name. We can't use
+             // pid because a same binary should write the data to the same 
+@@ -751,6 +804,41 @@ static void* dumping_thread(void*) {
+             }
+         }
+ 
++        // Dump multi dimension bvar
++        if (FLAGS_mbvar_dump && !mbvar_filename.empty()) {
++            // Replace first <app> in filename with program name. We can't use
++            // pid because a same binary should write the data to the same 
++            // place, otherwise restarting of app may confuse noah with a lot 
++            // of *.data. noah takes 1.5 days to figure out that some data is
++            // outdated and to be removed.
++            const size_t pos = mbvar_filename.find("<app>");
++            if (pos != std::string::npos) {
++                mbvar_filename.replace(pos, 5/*<app>*/, command_name);
++            }
++            if (mbvar_last_filename != mbvar_filename) {
++                mbvar_last_filename = mbvar_filename;
++                LOG(INFO) << "Write all mbvar to " << mbvar_filename << " every "
++                << FLAGS_bvar_dump_interval << " seconds.";
++            }
++            const size_t pos2 = mbvar_prefix.find("<app>");
++            if (pos2 != std::string::npos) {
++                mbvar_prefix.replace(pos2, 5/*<app>*/, command_name);
++            }
++
++            Dumper* dumper = NULL;
++            if ("common" == mbvar_format) {
++                dumper = new CommonFileDumper(mbvar_filename, mbvar_prefix);
++            } else if ("prometheus" == mbvar_format) {
++                dumper = new PrometheusFileDumper(mbvar_filename, mbvar_prefix);
++            }
++            int nline = MVariable::dump_exposed(dumper, &options);
++            if (nline < 0) {
++                LOG(ERROR) << "Fail to dump mvars into " << filename;
++            }
++            delete dumper;
++            dumper = NULL;
++        }
++
+         // We need to separate the sleeping into a long interruptible sleep
+         // and a short uninterruptible sleep. Doing this because we wake up
+         // this thread in gflag validators. If this thread dumps just after
+@@ -833,6 +921,29 @@ const bool ALLOW_UNUSED dummy_bvar_dump_prefix = ::GFLAGS_NS::RegisterFlagValida
+ const bool ALLOW_UNUSED dummy_bvar_dump_tabs = ::GFLAGS_NS::RegisterFlagValidator(
+     &FLAGS_bvar_dump_tabs, wakeup_dumping_thread);
+ 
++const bool ALLOW_UNUSED dummy_mbvar_dump = ::GFLAGS_NS::RegisterFlagValidator(
++    &FLAGS_mbvar_dump, validate_bvar_dump);
++const bool ALLOW_UNUSED dummy_mbvar_dump_prefix = ::GFLAGS_NS::RegisterFlagValidator(
++    &FLAGS_mbvar_dump_prefix, wakeup_dumping_thread);
++const bool ALLOW_UNUSED dump_mbvar_dump_file = ::GFLAGS_NS::RegisterFlagValidator(
++    &FLAGS_mbvar_dump_file, wakeup_dumping_thread);
++
++static bool validate_mbvar_dump_format(const char*, const std::string& format) {
++    if (format != "common"
++        && format != "prometheus") {
++        LOG(ERROR) << "Invalid mbvar_dump_format=" << format;
++        return false;
++    }
++
++    // We're modifying a flag, wake up dumping_thread to generate
++    // a new file soon.
++    pthread_cond_signal(&dump_cond);
++    return true;
++}
++
++const bool ALLOW_UNUSED dummy_mbvar_dump_format = ::GFLAGS_NS::RegisterFlagValidator(
++    &FLAGS_mbvar_dump_format, validate_mbvar_dump_format);
++
+ void to_underscored_name(std::string* name, const butil::StringPiece& src) {
+     name->reserve(name->size() + src.size() + 8/*just guess*/);
+     for (const char* p = src.data(); p != src.data() + src.size(); ++p) {
+diff --git a/src/bvar/variable.h b/src/bvar/variable.h
+index 192484c..482f3b1 100644
+--- a/src/bvar/variable.h
++++ b/src/bvar/variable.h
+@@ -53,6 +53,9 @@ public:
+     virtual ~Dumper() { }
+     virtual bool dump(const std::string& name,
+                       const butil::StringPiece& description) = 0;
++    virtual bool dump_comment(const std::string&, const std::string& /*type*/) {
++        return true;
++    }
+ };
+ 
+ // Options for Variable::dump_exposed().
 diff --git a/src/bvar/window.h b/src/bvar/window.h
 index a5780bf..a2cae43 100644
 --- a/src/bvar/window.h
@@ -2969,6 +4892,726 @@ index 3fbc6c4..2b71f03 100644
  } // namespace json2pb
  
  #endif // BRPC_JSON2PB_PB_TO_JSON_H
+diff --git a/test/bvar_multi_dimension_unittest.cpp b/test/bvar_multi_dimension_unittest.cpp
+new file mode 100644
+index 0000000..c40e5bb
+--- /dev/null
++++ b/test/bvar_multi_dimension_unittest.cpp
+@@ -0,0 +1,471 @@
++// Licensed to the Apache Software Foundation (ASF) under one
++// or more contributor license agreements.  See the NOTICE file
++// distributed with this work for additional information
++// regarding copyright ownership.  The ASF licenses this file
++// to you under the Apache License, Version 2.0 (the
++// "License"); you may not use this file except in compliance
++// with the License.  You may obtain a copy of the License at
++//
++//   http://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing,
++// software distributed under the License is distributed on an
++// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
++// KIND, either express or implied.  See the License for the
++// specific language governing permissions and limitations
++// under the License.
++
++// Date 2021/11/17 14:57:49
++
++#include <pthread.h>
++#include <cstddef>
++#include <memory>
++#include <iostream>
++#include <set>
++#include <string>
++#include <gflags/gflags.h>
++#include <gtest/gtest.h>
++#include "butil/time.h"
++#include "butil/macros.h"
++#include "bvar/bvar.h"
++#include "bvar/multi_dimension.h"
++#include "butil/third_party/rapidjson/rapidjson.h"
++#include "butil/third_party/rapidjson/document.h"
++
++const size_t OPS_PER_THREAD = 200000;
++
++const size_t OPS_PER_THREAD_INTRECORDER = 2000;
++
++static const int num_thread = 24;
++
++static const int idc_count = 20;
++static const int method_count = 20;
++static const int status_count = 50;
++
++static const std::list<std::string> labels = {"idc", "method", "status"};
++
++static void *thread_adder(void *arg) {
++    bvar::Adder<uint64_t> *reducer = (bvar::Adder<uint64_t> *)arg;
++    butil::Timer timer;
++    timer.start();
++    for (size_t i = 0; i < OPS_PER_THREAD; ++i) {
++        (*reducer) << 2;
++    }
++    timer.stop();
++    return (void *)(timer.n_elapsed());
++}
++
++static long start_perf_test_with_madder(size_t num_thread, bvar::Adder<uint64_t>* adder) {
++    EXPECT_TRUE(adder->valid());
++    pthread_t threads[num_thread];
++    for (size_t i = 0; i < num_thread; ++i) {
++        pthread_create(&threads[i], NULL, &thread_adder, (void *)adder);
++    }
++    long totol_time = 0;
++    for (size_t i = 0; i < num_thread; ++i) {
++        void *ret = NULL; 
++        pthread_join(threads[i], &ret);
++        totol_time += (long)ret;
++    }
++    long avg_time = totol_time / (OPS_PER_THREAD * num_thread);
++    EXPECT_EQ(2ul * num_thread * OPS_PER_THREAD, adder->get_value());
++    return avg_time;
++}
++
++static void *thread_maxer(void *arg) {
++    bvar::Maxer<uint64_t> *reducer = (bvar::Maxer<uint64_t> *)arg;
++    butil::Timer timer;
++    timer.start();
++    for (size_t i = 1; i <= OPS_PER_THREAD; ++i) {
++        (*reducer) << 2 * i * OPS_PER_THREAD;
++    }
++    timer.stop();
++    return (void *)(timer.n_elapsed());
++}
++
++static long start_perf_test_with_mmaxer(size_t num_thread, bvar::Maxer<uint64_t>* maxer) {
++    EXPECT_TRUE(maxer->valid());
++    pthread_t threads[num_thread];
++    for (size_t i = 0; i < num_thread; ++i) {
++        pthread_create(&threads[i], NULL, &thread_maxer, (void *)maxer);
++    }
++    long totol_time = 0;
++    for (size_t i = 0; i < num_thread; ++i) {
++        void *ret = NULL; 
++        pthread_join(threads[i], &ret);
++        totol_time += (long)ret;
++    }
++    long avg_time = totol_time / (OPS_PER_THREAD * num_thread);
++    EXPECT_EQ(2ul * OPS_PER_THREAD * OPS_PER_THREAD, maxer->get_value());
++    return avg_time;
++}
++
++static void *thread_miner(void *arg) {
++    bvar::Miner<uint64_t> *reducer = (bvar::Miner<uint64_t> *)arg;
++    butil::Timer timer;
++    timer.start();
++    for (size_t i = 1; i <= OPS_PER_THREAD; ++i) {
++        (*reducer) << -2 * i * OPS_PER_THREAD;
++    }
++    timer.stop();
++    return (void *)(timer.n_elapsed());
++}
++
++static long start_perf_test_with_mminer(size_t num_thread, bvar::Miner<uint64_t>* miner) {
++    EXPECT_TRUE(miner->valid());
++    pthread_t threads[num_thread];
++    for (size_t i = 0; i < num_thread; ++i) {
++        pthread_create(&threads[i], NULL, &thread_miner, (void *)miner);
++    }
++    long totol_time = 0;
++    for (size_t i = 0; i < num_thread; ++i) {
++        void *ret = NULL; 
++        pthread_join(threads[i], &ret);
++        totol_time += (long)ret;
++    }
++    long avg_time = totol_time / (OPS_PER_THREAD * num_thread);
++    EXPECT_EQ(-2ul * OPS_PER_THREAD * OPS_PER_THREAD, miner->get_value());
++    return avg_time;
++}
++
++static void *thread_intrecorder(void *arg) {
++    bvar::IntRecorder *reducer = (bvar::IntRecorder *)arg;
++    butil::Timer timer;
++    timer.start();
++    for (size_t i = 1; i <= OPS_PER_THREAD_INTRECORDER; ++i) {
++        (*reducer) << 2 * i * OPS_PER_THREAD_INTRECORDER;
++    }
++    timer.stop();
++    return (void *)(timer.n_elapsed());
++}
++
++static long start_perf_test_with_mintrecorder(size_t num_thread, bvar::IntRecorder* intrecorder) {
++    EXPECT_TRUE(intrecorder->valid());
++    pthread_t threads[num_thread];
++    for (size_t i = 0; i < num_thread; ++i) {
++        pthread_create(&threads[i], NULL, &thread_intrecorder, (void *)intrecorder);
++    }
++    long totol_time = 0;
++    for (size_t i = 0; i < num_thread; ++i) {
++        void *ret = NULL; 
++        pthread_join(threads[i], &ret);
++        totol_time += (long)ret;
++    }
++    long avg_time = totol_time / (OPS_PER_THREAD_INTRECORDER * num_thread);
++    EXPECT_EQ(2ul * (1 + OPS_PER_THREAD_INTRECORDER) / 2 * OPS_PER_THREAD_INTRECORDER, intrecorder->average());
++    return avg_time;
++}
++
++class MultiDimensionTest : public testing::Test {
++protected:
++    void SetUp() {}
++    void TearDown() {
++    }
++};
++
++TEST_F(MultiDimensionTest, madder) {
++    std::list<std::string> labels_value = {"bj", "get", "200"};
++    bvar::MultiDimension<bvar::Adder<uint32_t> > my_madder1("request_count_madder_uint32_t", labels);
++    bvar::Adder<uint32_t>* my_adder1 = my_madder1.get_stats(labels_value);
++    ASSERT_TRUE(my_adder1);
++    ASSERT_TRUE(my_adder1->valid());
++    *my_adder1 << 2 << 4;
++    ASSERT_EQ(6u, my_adder1->get_value());
++
++    bvar::MultiDimension<bvar::Adder<double> > my_madder2("request_count_madder_double", labels);
++    bvar::Adder<double>* my_adder2 = my_madder2.get_stats(labels_value);
++    ASSERT_TRUE(my_adder2);
++    ASSERT_TRUE(my_adder2->valid());
++    *my_adder2 <<  2.0 << 4.0;
++    ASSERT_EQ(6.0, my_adder2->get_value());
++
++    bvar::MultiDimension<bvar::Adder<int> > my_madder3("request_count_madder_int", labels);
++    bvar::Adder<int>* my_adder3 = my_madder3.get_stats(labels_value);
++    ASSERT_TRUE(my_adder3);
++    ASSERT_TRUE(my_adder3->valid());
++    *my_adder3 << -9 << 1 << 0 << 3;
++    ASSERT_EQ(-5, my_adder3->get_value());
++
++    bvar::MultiDimension<bvar::Adder<std::string> > my_madder_str("my_string", labels);
++    bvar::Adder<std::string> *my_str1 = my_madder_str.get_stats(labels_value);
++    ASSERT_TRUE(my_str1);
++    std::string str1 = "world";
++    *my_str1 << "hello " << str1;
++    ASSERT_STREQ("hello world", my_str1->get_value().c_str());
++}
++
++TEST_F(MultiDimensionTest, mmadder_perf) {
++    std::list<std::string> labels_value = {"bj", "get", "200"};
++    bvar::MultiDimension<bvar::Adder<uint64_t> > my_madder1("request_count_madder_uint64_t", labels);
++    bvar::Adder<uint64_t>* my_adder = my_madder1.get_stats(labels_value);
++    ASSERT_TRUE(my_adder);
++    
++    std::ostringstream oss;
++    for (size_t i = 1; i <= num_thread; ++i) { 
++        my_adder->reset();
++        oss << i << '\t' << start_perf_test_with_madder(i, my_adder) << '\n';
++    }
++    LOG(INFO) << "Adder performance:\n" << oss.str();
++}
++
++TEST_F(MultiDimensionTest, mmaxer) {
++    bvar::MultiDimension<bvar::Maxer<int> > my_mmaxer("request_count_mmaxer", labels);
++    std::list<std::string> labels_value = {"bj", "get", "200"};
++    bvar::Maxer<int>* my_maxer = my_mmaxer.get_stats(labels_value);
++    ASSERT_TRUE(my_maxer);
++    *my_maxer << 1 << 2 << 3;
++    ASSERT_EQ(3, my_maxer->get_value());
++}
++
++TEST_F(MultiDimensionTest, mmaxer_perf) {
++    bvar::MultiDimension<bvar::Maxer<uint64_t> > my_mmaxer("request_count_mmaxer", labels);
++    std::list<std::string> labels_value = {"bj", "get", "200"};
++    bvar::Maxer<uint64_t>* my_maxer = my_mmaxer.get_stats(labels_value);
++    ASSERT_TRUE(my_maxer);
++    
++    std::ostringstream oss;
++    for (size_t i = 1; i <= num_thread; ++i) { 
++        my_maxer->reset();
++        oss << i << '\t' << start_perf_test_with_mmaxer(i, my_maxer) << '\n';
++    }
++    LOG(INFO) << "Maxer performance:\n" << oss.str();
++}
++
++TEST_F(MultiDimensionTest, mminer) {
++    bvar::MultiDimension<bvar::Miner<int> > my_mminer("client_request_count_mminer", labels);
++    std::list<std::string> labels_value = {"bj", "get", "200"};
++    bvar::Miner<int>* my_miner = my_mminer.get_stats(labels_value);
++    ASSERT_TRUE(my_miner);
++    *my_miner << 1 << 2 << 3;
++    ASSERT_EQ(1, my_miner->get_value());
++}
++
++TEST_F(MultiDimensionTest, mminer_perf) {
++    bvar::MultiDimension<bvar::Miner<uint64_t> > my_mminer("request_count_mminer", labels);
++    std::list<std::string> labels_value = {"bj", "get", "200"};
++    bvar::Miner<uint64_t>* my_miner = my_mminer.get_stats(labels_value);
++    ASSERT_TRUE(my_miner);
++    
++    std::ostringstream oss;
++    for (size_t i = 1; i <= num_thread; ++i) { 
++        my_miner->reset();
++        oss << i << '\t' << start_perf_test_with_mminer(i, my_miner) << '\n';
++    }
++    LOG(INFO) << "Miner performance:\n" << oss.str();
++}
++
++
++TEST_F(MultiDimensionTest, mintrecoder) {
++    bvar::MultiDimension<bvar::IntRecorder> my_mintrecorder("client_request_count_mintrecorder", labels);
++    std::list<std::string> labels_value = {"bj", "get", "200"};
++    bvar::IntRecorder* my_intrecorder = my_mintrecorder.get_stats(labels_value);
++    ASSERT_TRUE(my_intrecorder);
++    *my_intrecorder << 1 << 2 << 3;
++    ASSERT_EQ(2, my_intrecorder->average());
++}
++
++TEST_F(MultiDimensionTest, mintrecorder_perf) {
++    bvar::MultiDimension<bvar::IntRecorder> my_mintrecorder("request_count_mintrecorder", labels);
++    std::list<std::string> labels_value = {"bj", "get", "200"};
++    bvar::IntRecorder* my_intrecorder = my_mintrecorder.get_stats(labels_value);
++    ASSERT_TRUE(my_intrecorder);
++    
++    std::ostringstream oss;
++    for (size_t i = 1; i <= num_thread; ++i) { 
++        my_intrecorder->reset();
++        oss << i << '\t' << start_perf_test_with_mintrecorder(i, my_intrecorder) << '\n';
++    }
++    LOG(INFO) << "IntRecorder performance:\n" << oss.str();
++}
++
++TEST_F(MultiDimensionTest, stats) {
++    std::vector<std::list<std::string> > vec_labels;
++    std::vector<std::list<std::string> > vec_labels_no_sort;
++    bvar::MultiDimension<bvar::Adder<int> > my_madder("test_stats", labels);
++    std::list<std::string> labels_value1 = {"tc", "get", "200"};
++    vec_labels.push_back(labels_value1);
++    vec_labels_no_sort.push_back(labels_value1);
++    bvar::Adder<int>* adder1 = my_madder.get_stats(labels_value1);
++    ASSERT_TRUE(adder1);
++    std::vector<std::list<std::string> > ret_labels;
++    my_madder.list_stats(&ret_labels);
++    ASSERT_EQ(vec_labels, ret_labels);
++
++    std::list<std::string> labels_value2 = {"nj", "get", "200"};
++    bvar::Adder<int>* adder2 = my_madder.get_stats(labels_value2);
++    ASSERT_TRUE(adder2);
++    vec_labels.push_back(labels_value2);
++    vec_labels_no_sort.push_back(labels_value2);
++    my_madder.list_stats(&ret_labels);
++    sort(vec_labels.begin(), vec_labels.end());
++    sort(ret_labels.begin(), ret_labels.end());
++    ASSERT_EQ(vec_labels, ret_labels);
++
++    std::list<std::string> labels_value3 = {"hz", "post", "500"};
++    bvar::Adder<int>* adder3 = my_madder.get_stats(labels_value3);
++    ASSERT_TRUE(adder3);
++    vec_labels.push_back(labels_value3);
++    vec_labels_no_sort.push_back(labels_value3);
++    my_madder.list_stats(&ret_labels);
++    sort(vec_labels.begin(), vec_labels.end());
++    sort(ret_labels.begin(), ret_labels.end());
++    ASSERT_EQ(vec_labels, ret_labels);
++
++    std::list<std::string> labels_value4 = {"gz", "post", "500"};
++    bvar::Adder<int>* adder4 = my_madder.get_stats(labels_value4);
++    ASSERT_TRUE(adder4);
++    ASSERT_EQ(4, my_madder.count_stats());
++    vec_labels.push_back(labels_value4);
++    vec_labels_no_sort.push_back(labels_value4);
++    my_madder.list_stats(&ret_labels);
++    sort(vec_labels.begin(), vec_labels.end());
++    sort(ret_labels.begin(), ret_labels.end());
++    ASSERT_EQ(vec_labels, ret_labels);
++
++    my_madder.delete_stats(labels_value4);
++    ASSERT_EQ(3, my_madder.count_stats());
++    vec_labels_no_sort.pop_back();
++    my_madder.list_stats(&ret_labels);
++    sort(vec_labels_no_sort.begin(), vec_labels_no_sort.end());
++    sort(ret_labels.begin(), ret_labels.end());
++    ASSERT_EQ(vec_labels_no_sort, ret_labels);
++}
++
++TEST_F(MultiDimensionTest, get_description) {
++    bvar::MultiDimension<bvar::Adder<int> > my_madder("test_get_description", labels);
++    std::list<std::string> labels_value1 = {"gz", "post", "200"};
++    bvar::Adder<int>* adder1 = my_madder.get_stats(labels_value1);
++    ASSERT_TRUE(adder1);
++    *adder1 << 1;
++    std::list<std::string> labels_value2 = {"tc", "post", "200"};
++    bvar::Adder<int>* adder2 = my_madder.get_stats(labels_value2);
++    ASSERT_TRUE(adder2);
++    *adder2 << 2;
++
++    const std::string description = my_madder.get_description();
++    LOG(INFO) << "description=" << description;
++    BUTIL_RAPIDJSON_NAMESPACE::Document doc;
++    doc.Parse(description.c_str());
++    ASSERT_FALSE(doc.HasParseError());
++    ASSERT_TRUE(doc.IsObject());
++    ASSERT_TRUE(doc.HasMember("name"));
++    ASSERT_TRUE(doc["name"].IsString());
++    ASSERT_STREQ("test_get_description", doc["name"].GetString());
++
++    ASSERT_TRUE(doc.HasMember("stats_count"));
++    ASSERT_TRUE(doc["stats_count"].IsInt());
++    ASSERT_EQ(2, doc["stats_count"].GetInt());
++
++    ASSERT_TRUE(doc.HasMember("labels"));
++    ASSERT_TRUE(doc["labels"].IsArray());
++
++    BUTIL_RAPIDJSON_NAMESPACE::Value& labels = doc["labels"];
++    ASSERT_EQ(3, labels.Size());
++    ASSERT_STREQ(labels[0].GetString(), "idc");
++    ASSERT_STREQ(labels[1].GetString(), "method");
++    ASSERT_STREQ(labels[2].GetString(), "status");
++}
++
++TEST_F(MultiDimensionTest, mlatencyrecorder) {
++    std::string old_bvar_dump_interval;
++    std::string old_mbvar_dump;
++    std::string old_bvar_latency_p1;
++    std::string old_bvar_latency_p2;
++    std::string old_bvar_latency_p3;
++
++    GFLAGS_NS::GetCommandLineOption("bvar_dump_interval", &old_bvar_dump_interval);
++    GFLAGS_NS::GetCommandLineOption("mbvar_dump", &old_mbvar_dump);
++    GFLAGS_NS::GetCommandLineOption("bvar_latency_p1", &old_bvar_latency_p1);
++    GFLAGS_NS::GetCommandLineOption("bvar_latency_p2", &old_bvar_latency_p2);
++    GFLAGS_NS::GetCommandLineOption("bvar_latency_p3", &old_bvar_latency_p3);
++
++    GFLAGS_NS::SetCommandLineOption("bvar_dump_interval", "1");
++    GFLAGS_NS::SetCommandLineOption("mbvar_dump", "true");
++    GFLAGS_NS::SetCommandLineOption("bvar_latency_p1", "60");
++    GFLAGS_NS::SetCommandLineOption("bvar_latency_p2", "70");
++    GFLAGS_NS::SetCommandLineOption("bvar_latency_p3", "80");
++
++    bvar::MultiDimension<bvar::LatencyRecorder> my_mlatencyrecorder("client_request_count_mlatencyrecorder", labels);
++    std::list<std::string> labels_value = {"tc", "get", "200"};
++    bvar::LatencyRecorder* my_latencyrecorder = my_mlatencyrecorder.get_stats(labels_value);
++    ASSERT_TRUE(my_latencyrecorder);
++    *my_latencyrecorder << 1 << 2 << 3 << 4 << 5 << 6 << 7;
++    sleep(1);
++    ASSERT_EQ(4, my_latencyrecorder->latency());
++    ASSERT_EQ(7, my_latencyrecorder->max_latency());
++    ASSERT_LE(7, my_latencyrecorder->qps());
++    ASSERT_EQ(7, my_latencyrecorder->count());
++
++    GFLAGS_NS::SetCommandLineOption("bvar_dump_interval", old_bvar_dump_interval.c_str());
++    GFLAGS_NS::SetCommandLineOption("mbvar_dump", old_mbvar_dump.c_str());
++    GFLAGS_NS::SetCommandLineOption("bvar_latency_p1", old_bvar_latency_p1.c_str());
++    GFLAGS_NS::SetCommandLineOption("bvar_latency_p2", old_bvar_latency_p2.c_str());
++    GFLAGS_NS::SetCommandLineOption("bvar_latency_p3", old_bvar_latency_p3.c_str());
++}
++
++TEST_F(MultiDimensionTest, mstatus) {
++    bvar::MultiDimension<bvar::Status<int> > my_mstatus("my_mstatus", labels);
++    std::list<std::string> labels_value {"tc", "get", "200"};
++    bvar::Status<int>* my_status = my_mstatus.get_stats(labels_value);
++    ASSERT_TRUE(my_status);
++    my_status->set_value(1);
++    ASSERT_EQ(1, my_status->get_value());
++}
++
++typedef size_t (*hash_fun)(const std::list<std::string>& labels_name);
++
++static uint64_t perf_hash(hash_fun fn) {
++    uint64_t cost = 0;
++    for (int i = 0; i < idc_count; i++) {
++        std::ostringstream oss_idc;
++        oss_idc << "idc" << i;
++        for (int j = 0; j < method_count; j++) {
++            std::ostringstream oss_method;
++            oss_method << "method" << j;
++            for (int k = 0; k < status_count; k++) {
++                std::ostringstream oss_status;
++                oss_status << "status" << k;
++                std::list<std::string> labels_value {oss_idc.str(), oss_method.str(), oss_status.str()};
++                butil::Timer timer(butil::Timer::STARTED);
++                size_t hash_code = fn(labels_value);
++                EXPECT_NE(0, hash_code);
++                timer.stop();
++                cost += timer.n_elapsed();
++            }
++        }
++    }
++    return cost;
++}
++
++static size_t hash_fun1(const std::list<std::string>& labels_value) {
++    size_t hash_value = 0;
++    for (auto &k : labels_value) {
++        hash_value += std::hash<std::string>()(k);
++    }
++    return hash_value;
++}
++
++static size_t hash_fun2(const std::list<std::string>& labels_value) {
++    std::string hash_str;
++    for (auto &k : labels_value) {
++        hash_str.append(k);
++    }
++    return std::hash<std::string>()(hash_str);
++}
++
++static size_t hash_fun3(const std::list<std::string>& labels_value) {
++    std::ostringstream oss;
++    for (auto &k : labels_value) {
++        oss << k;
++    }
++    return std::hash<std::string>()(oss.str());
++}
++
++TEST_F(MultiDimensionTest, test_hash) {
++    std::ostringstream oss;
++    oss << "hash_fun1 \t" << perf_hash(hash_fun1) << "\n"
++        << "hash_fun2 \t" << perf_hash(hash_fun2) << "\n"
++        << "hash_fun3 \t" << perf_hash(hash_fun3) << "\n";
++    LOG(INFO) << "Hash fun performance:\n" << oss.str();
++}
++
+diff --git a/test/bvar_mvariable_unittest.cpp b/test/bvar_mvariable_unittest.cpp
+new file mode 100644
+index 0000000..8e78331
+--- /dev/null
++++ b/test/bvar_mvariable_unittest.cpp
+@@ -0,0 +1,237 @@
++// Licensed to the Apache Software Foundation (ASF) under one
++// or more contributor license agreements.  See the NOTICE file
++// distributed with this work for additional information
++// regarding copyright ownership.  The ASF licenses this file
++// to you under the Apache License, Version 2.0 (the
++// "License"); you may not use this file except in compliance
++// with the License.  You may obtain a copy of the License at
++//
++//   http://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing,
++// software distributed under the License is distributed on an
++// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
++// KIND, either express or implied.  See the License for the
++// specific language governing permissions and limitations
++// under the License.
++
++// Date 2021/11/17 14:57:49
++
++#include <pthread.h>                                // pthread_*
++#include <cstddef>
++#include <memory>
++#include <iostream>
++#include <set>
++#include <string>
++#include <gflags/gflags.h>
++#include <gtest/gtest.h>
++#include "butil/time.h"
++#include "butil/macros.h"
++#include "bvar/bvar.h"
++#include "bvar/multi_dimension.h"
++
++static const int num_thread = 24;
++
++static const int idc_count = 20;
++static const int method_count = 20;
++static const int status_count = 50;
++static const int labels_count = idc_count * method_count * status_count;
++
++static const std::list<std::string> labels = {"idc", "method", "status"};
++
++struct thread_perf_data {
++    bvar::MVariable* mbvar;
++    bvar::Variable*  rbvar;
++    bvar::Variable*  wbvar;
++};
++
++class MVariableTest : public testing::Test {
++protected:
++    void SetUp() {}
++    void TearDown() {
++    }
++};
++
++namespace foo {
++namespace bar {
++class Apple {};
++class BaNaNa {};
++class Car_Rot {};
++class RPCTest {};
++class HELLO {};
++}
++}
++
++TEST_F(MVariableTest, expose) {
++    std::vector<std::string> list_exposed_vars;
++    std::list<std::string> labels_value1 {"bj", "get", "200"};
++    bvar::MultiDimension<bvar::Adder<int> > my_madder1(labels);
++    ASSERT_EQ(0UL, bvar::MVariable::count_exposed());
++    my_madder1.expose("request_count_madder");
++    ASSERT_EQ(1UL, bvar::MVariable::count_exposed());
++    bvar::Adder<int>* my_adder1 = my_madder1.get_stats(labels_value1);
++    ASSERT_TRUE(my_adder1);
++    ASSERT_STREQ("request_count_madder", my_madder1.name().c_str());
++
++    ASSERT_EQ(0, my_madder1.expose("request_count_madder_another"));
++    ASSERT_STREQ("request_count_madder_another", my_madder1.name().c_str());
++
++    ASSERT_EQ(0, my_madder1.expose("request-count::madder"));
++    ASSERT_STREQ("request_count_madder", my_madder1.name().c_str());
++
++    ASSERT_EQ(0, my_madder1.expose("request.count-madder::BaNaNa"));
++    ASSERT_STREQ("request_count_madder_ba_na_na", my_madder1.name().c_str());
++
++    ASSERT_EQ(0, my_madder1.expose_as("foo::bar::Apple", "request"));
++    ASSERT_STREQ("foo_bar_apple_request", my_madder1.name().c_str());
++
++    ASSERT_EQ(0, my_madder1.expose_as("foo.bar::BaNaNa", "request"));
++    ASSERT_STREQ("foo_bar_ba_na_na_request", my_madder1.name().c_str());
++
++    ASSERT_EQ(0, my_madder1.expose_as("foo::bar.Car_Rot", "request"));
++    ASSERT_STREQ("foo_bar_car_rot_request", my_madder1.name().c_str());
++
++    ASSERT_EQ(0, my_madder1.expose_as("foo-bar-RPCTest", "request"));
++    ASSERT_STREQ("foo_bar_rpctest_request", my_madder1.name().c_str());
++
++    ASSERT_EQ(0, my_madder1.expose_as("foo-bar-HELLO", "request"));
++    ASSERT_STREQ("foo_bar_hello_request", my_madder1.name().c_str());
++
++    my_madder1.expose("request_count_madder");
++    ASSERT_STREQ("request_count_madder", my_madder1.name().c_str());
++    list_exposed_vars.push_back("request_count_madder");
++
++    ASSERT_EQ(1UL, my_madder1.count_stats());
++    ASSERT_EQ(1UL, bvar::MVariable::count_exposed());
++
++    std::list<std::string> labels2 {"user", "url", "cost"};
++    bvar::MultiDimension<bvar::Adder<int> > my_madder2("client_url", labels2);
++    ASSERT_EQ(2UL, bvar::MVariable::count_exposed());
++    list_exposed_vars.push_back("client_url");
++
++    std::list<std::string> labels3 {"product", "system", "module"};
++    bvar::MultiDimension<bvar::Adder<int> > my_madder3("request_from", labels3);
++    list_exposed_vars.push_back("request_from");
++    ASSERT_EQ(3UL, bvar::MVariable::count_exposed());
++
++    std::vector<std::string> exposed_vars;
++    bvar::MVariable::list_exposed(&exposed_vars);
++    ASSERT_EQ(3, exposed_vars.size());
++
++    my_madder3.hide();
++    ASSERT_EQ(2UL, bvar::MVariable::count_exposed());
++    list_exposed_vars.pop_back();
++    exposed_vars.clear();
++    bvar::MVariable::list_exposed(&exposed_vars);
++    ASSERT_EQ(2, exposed_vars.size());
++}
++
++TEST_F(MVariableTest, labels) {
++    std::list<std::string> labels_value1 {"bj", "get", "200"};
++    bvar::MultiDimension<bvar::Adder<int> > my_madder1("request_count_madder", labels);
++
++    ASSERT_EQ(labels.size(), my_madder1.count_labels());
++    ASSERT_STREQ("request_count_madder", my_madder1.name().c_str());
++
++    ASSERT_EQ(labels, my_madder1.labels());
++
++    std::list<std::string> labels_too_long;
++    std::list<std::string> labels_max;
++    int labels_too_long_count = 15;
++    for (int i = 0; i < labels_too_long_count; ++i) {
++        std::ostringstream os;
++        os << "label" << i;
++        labels_too_long.push_back(os.str());
++        if (i < 10) {
++            labels_max.push_back(os.str());
++        }
++    }
++    ASSERT_EQ(labels_too_long_count, labels_too_long.size());
++    bvar::MultiDimension<bvar::Adder<int> > my_madder2("request_labels_too_long", labels_too_long);
++    ASSERT_EQ(10, my_madder2.count_labels());
++    ASSERT_EQ(labels_max, my_madder2.labels());
++}
++
++TEST_F(MVariableTest, dump) {
++    std::string old_bvar_dump_interval;
++    std::string old_mbvar_dump;
++    std::string old_mbvar_dump_prefix;
++    std::string old_mbvar_dump_format;
++
++    GFLAGS_NS::GetCommandLineOption("bvar_dump_interval", &old_bvar_dump_interval);
++    GFLAGS_NS::GetCommandLineOption("mbvar_dump", &old_mbvar_dump);
++    GFLAGS_NS::GetCommandLineOption("mbvar_dump_prefix", &old_mbvar_dump_prefix);
++    GFLAGS_NS::GetCommandLineOption("mbvar_dump_format", &old_mbvar_dump_format);
++
++    GFLAGS_NS::SetCommandLineOption("bvar_dump_interval", "1");
++    GFLAGS_NS::SetCommandLineOption("mbvar_dump", "true");
++    GFLAGS_NS::SetCommandLineOption("mbvar_dump_prefix", "my_mdump_prefix");
++    GFLAGS_NS::SetCommandLineOption("mbvar_dump_format", "common");
++
++    bvar::MultiDimension<bvar::Adder<int> > my_madder("dump_adder", labels);
++    std::list<std::string> labels_value1 {"gz", "post", "200"};
++    bvar::Adder<int>* adder1 = my_madder.get_stats(labels_value1);
++    ASSERT_TRUE(adder1);
++    *adder1 << 1 << 3 << 5;
++
++    std::list<std::string> labels_value2 {"tc", "get", "200"};
++    bvar::Adder<int>* adder2 = my_madder.get_stats(labels_value2);
++    ASSERT_TRUE(adder2);
++    *adder2 << 2 << 4 << 6;
++
++    std::list<std::string> labels_value3 {"jx", "post", "500"};
++    bvar::Adder<int>* adder3 = my_madder.get_stats(labels_value3);
++    ASSERT_TRUE(adder3);
++    *adder3 << 3 << 6 << 9;
++
++    bvar::MultiDimension<bvar::Maxer<int> > my_mmaxer("dump_maxer", labels);
++    bvar::Maxer<int>* maxer1 = my_mmaxer.get_stats(labels_value1);
++    ASSERT_TRUE(maxer1);
++    *maxer1 << 3 << 1 << 5;
++
++    bvar::Maxer<int>* maxer2 = my_mmaxer.get_stats(labels_value2);
++    ASSERT_TRUE(maxer2);
++    *maxer2 << 2 << 6 << 4;
++
++    bvar::Maxer<int>* maxer3 = my_mmaxer.get_stats(labels_value3);
++    ASSERT_TRUE(maxer3);
++    *maxer3 << 9 << 6 << 3;
++
++    bvar::MultiDimension<bvar::Miner<int> > my_mminer("dump_miner", labels);
++    bvar::Miner<int>* miner1 = my_mminer.get_stats(labels_value1);
++    ASSERT_TRUE(miner1);
++    *miner1 << 3 << 1 << 5;
++
++    bvar::Miner<int>* miner2 = my_mminer.get_stats(labels_value2);
++    ASSERT_TRUE(miner2);
++    *miner2 << 2 << 6 << 4;
++
++    bvar::Miner<int>* miner3 = my_mminer.get_stats(labels_value3);
++    ASSERT_TRUE(miner3);
++    *miner3 << 9 << 6 << 3;
++
++    bvar::MultiDimension<bvar::LatencyRecorder> my_mlatencyrecorder("dump_latencyrecorder", labels);
++    bvar::LatencyRecorder* my_latencyrecorder1 = my_mlatencyrecorder.get_stats(labels_value1);
++    ASSERT_TRUE(my_latencyrecorder1);
++    *my_latencyrecorder1 << 1 << 3 << 5;
++    *my_latencyrecorder1 << 2 << 4 << 6;
++    *my_latencyrecorder1 << 3 << 6 << 9;
++    sleep(2);
++    
++    GFLAGS_NS::SetCommandLineOption("bvar_dump_interval", old_bvar_dump_interval.c_str());
++    GFLAGS_NS::SetCommandLineOption("mbvar_dump", old_mbvar_dump.c_str());
++    GFLAGS_NS::SetCommandLineOption("mbvar_dump_prefix", old_mbvar_dump_prefix.c_str());
++    GFLAGS_NS::SetCommandLineOption("mbvar_dump_format", old_mbvar_dump_format.c_str());
++}
++
++TEST_F(MVariableTest, test_describe_exposed) {
++    std::list<std::string> labels_value1 {"bj", "get", "200"};
++    std::string bvar_name("request_count_describe");
++    bvar::MultiDimension<bvar::Adder<int> > my_madder1(bvar_name, labels);
++
++    std::string describe_str = bvar::MVariable::describe_exposed(bvar_name);
++
++    std::ostringstream describe_oss;
++    ASSERT_EQ(0, bvar::MVariable::describe_exposed(bvar_name, describe_oss));
++    ASSERT_STREQ(describe_str.c_str(), describe_oss.str().c_str());
++}
 diff --git a/tools/parallel_http/CMakeLists.txt b/tools/parallel_http/CMakeLists.txt
 index 457d600..9f80968 100644
 --- a/tools/parallel_http/CMakeLists.txt
