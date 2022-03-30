@@ -3657,10 +3657,10 @@ index 0000000..068a982
 +#endif // BVAR_MULTI_DIMENSION_H
 diff --git a/src/bvar/multi_dimension_inl.h b/src/bvar/multi_dimension_inl.h
 new file mode 100644
-index 0000000..d02243f
+index 0000000..bd04f90
 --- /dev/null
 +++ b/src/bvar/multi_dimension_inl.h
-@@ -0,0 +1,374 @@
+@@ -0,0 +1,375 @@
 +// Licensed to the Apache Software Foundation (ASF) under one
 +// or more contributor license agreements.  See the NOTICE file
 +// distributed with this work for additional information
@@ -3736,6 +3736,7 @@ index 0000000..d02243f
 +size_t MultiDimension<T>::init_flatmap(MetricMap& bg) {
 +    // size = 1 << 13
 +    //CHECK_EQ(0, bg.init(8192, 80));
++    bg.init(8192, 80);
 +    return (size_t)1;
 +}
 +
