@@ -854,17 +854,32 @@ index abc2b8e..64b2d3f 100644
  #include "brpc/controller.h"                // Controller
  #include "brpc/closure_guard.h"             // ClosureGuard
 diff --git a/src/brpc/builtin/prometheus_metrics_service.cpp b/src/brpc/builtin/prometheus_metrics_service.cpp
-index 5eddb1a..1d18ca2 100644
+index 5eddb1a..7bb87b0 100644
 --- a/src/brpc/builtin/prometheus_metrics_service.cpp
 +++ b/src/brpc/builtin/prometheus_metrics_service.cpp
-@@ -25,6 +25,7 @@
+@@ -25,6 +25,8 @@
  #include "brpc/builtin/prometheus_metrics_service.h"
  #include "brpc/builtin/common.h"
  #include "bvar/bvar.h"
 +#include "butil/logging.h"
++#include "bvar/mvariable.h"
  
  namespace bvar {
  DECLARE_int32(bvar_latency_p1);
+@@ -195,7 +197,12 @@ void PrometheusMetricsService::default_method(::google::protobuf::RpcController*
+ int DumpPrometheusMetricsToIOBuf(butil::IOBuf* output) {
+     butil::IOBufBuilder os;
+     PrometheusMetricsDumper dumper(&os, g_server_info_prefix);
+-    const int ndump = bvar::Variable::dump_exposed(&dumper, NULL);
++    int ndump = bvar::Variable::dump_exposed(&dumper, NULL);
++    if (ndump < 0) {
++        return -1;
++    }
++
++    ndump = bvar::MVariable::dump_exposed(&dumper, NULL);
+     if (ndump < 0) {
+         return -1;
+     }
 diff --git a/src/brpc/builtin/protobufs_service.cpp b/src/brpc/builtin/protobufs_service.cpp
 index 2344e46..a3ec5c4 100644
 --- a/src/brpc/builtin/protobufs_service.cpp
@@ -915,6 +930,36 @@ index 458c1c3..16224da 100644
  
  namespace brpc {
  
+diff --git a/src/brpc/builtin/vars_service.cpp b/src/brpc/builtin/vars_service.cpp
+index f60c49f..7d53b45 100644
+--- a/src/brpc/builtin/vars_service.cpp
++++ b/src/brpc/builtin/vars_service.cpp
+@@ -27,6 +27,7 @@
+ #include "brpc/server.h"
+ #include "brpc/builtin/common.h"
+ #include "brpc/builtin/vars_service.h"
++#include "bvar/mvariable.h"
+ 
+ namespace bvar {
+ DECLARE_bool(quote_vector);
+@@ -413,11 +414,16 @@ void VarsService::default_method(::google::protobuf::RpcController* cntl_base,
+     options.display_filter = 
+         (use_html ? bvar::DISPLAY_ON_HTML : bvar::DISPLAY_ON_PLAIN_TEXT);
+     options.white_wildcards = cntl->http_request().unresolved_path();
+-    const int ndump = bvar::Variable::dump_exposed(&dumper, &options);
++    int ndump = bvar::Variable::dump_exposed(&dumper, &options);
+     if (ndump < 0) {
+         cntl->SetFailed("Fail to dump vars");
+         return;
+     }
++    ndump = bvar::MVariable::dump_exposed(&dumper, &options);
++    if (ndump < 0) {
++        cntl->SetFailed("Fail to dump multi dimension vars");
++        return;
++    }
+     if (!options.white_wildcards.empty() && ndump == 0) {
+         cntl->SetFailed(ENOMETHOD, "Fail to find any bvar by `%s'",
+                         options.white_wildcards.c_str());
 diff --git a/src/brpc/builtin/vlog_service.cpp b/src/brpc/builtin/vlog_service.cpp
 index 2980d0b..1490c17 100644
 --- a/src/brpc/builtin/vlog_service.cpp
