@@ -854,7 +854,7 @@ index abc2b8e..64b2d3f 100644
  #include "brpc/controller.h"                // Controller
  #include "brpc/closure_guard.h"             // ClosureGuard
 diff --git a/src/brpc/builtin/prometheus_metrics_service.cpp b/src/brpc/builtin/prometheus_metrics_service.cpp
-index 5eddb1a..7bb87b0 100644
+index 5eddb1a..dc31b86 100644
 --- a/src/brpc/builtin/prometheus_metrics_service.cpp
 +++ b/src/brpc/builtin/prometheus_metrics_service.cpp
 @@ -25,6 +25,8 @@
@@ -866,7 +866,53 @@ index 5eddb1a..7bb87b0 100644
  
  namespace bvar {
  DECLARE_int32(bvar_latency_p1);
-@@ -195,7 +197,12 @@ void PrometheusMetricsService::default_method(::google::protobuf::RpcController*
+@@ -53,6 +55,7 @@ public:
+     }
+ 
+     bool dump(const std::string& name, const butil::StringPiece& desc) override;
++    size_t dumps(const std::vector<std::pair<std::string, std::string>>& v) override;
+ 
+ private:
+     DISALLOW_COPY_AND_ASSIGN(PrometheusMetricsDumper);
+@@ -98,6 +101,29 @@ bool PrometheusMetricsDumper::dump(const std::string& name,
+     return true;
+ }
+ 
++size_t PrometheusMetricsDumper::dumps(const std::vector<std::pair<std::string, std::string>>& v) {
++    size_t n = 0;
++    for (size_t i = 0;i < v.size(); i++) {
++        bool first = (i == 0);
++        auto& vi = v[i];
++
++        if (!vi.second.empty() && vi.second[0] == '"') {
++            // there is no necessary to monitor string in prometheus
++            continue;
++        }
++
++        if (first) {
++            auto pos = vi.first.find('{');
++            auto name = vi.first.substr(pos);
++            *_os << "# HELP " << name << '\n'
++                 << "# TYPE " << name << " gauge" << '\n';
++        }
++        *_os << vi.first << " " << vi.second << '\n';
++        n++;
++    }
++    return n;
++}
++
+ const PrometheusMetricsDumper::SummaryItems*
+ PrometheusMetricsDumper::ProcessLatencyRecorderSuffix(const butil::StringPiece& name,
+                                                       const butil::StringPiece& desc) {
+@@ -154,6 +180,7 @@ bool PrometheusMetricsDumper::DumpLatencyRecorderSuffix(
+     if (!si->IsComplete()) {
+         return true;
+     }
++
+     *_os << "# HELP " << si->metric_name << '\n'
+          << "# TYPE " << si->metric_name << " summary\n"
+          << si->metric_name << "{quantile=\""
+@@ -195,7 +222,12 @@ void PrometheusMetricsService::default_method(::google::protobuf::RpcController*
  int DumpPrometheusMetricsToIOBuf(butil::IOBuf* output) {
      butil::IOBufBuilder os;
      PrometheusMetricsDumper dumper(&os, g_server_info_prefix);
@@ -3702,10 +3748,10 @@ index 0000000..068a982
 +#endif // BVAR_MULTI_DIMENSION_H
 diff --git a/src/bvar/multi_dimension_inl.h b/src/bvar/multi_dimension_inl.h
 new file mode 100644
-index 0000000..bd04f90
+index 0000000..264b936
 --- /dev/null
 +++ b/src/bvar/multi_dimension_inl.h
-@@ -0,0 +1,375 @@
+@@ -0,0 +1,367 @@
 +// Licensed to the Apache Software Foundation (ASF) under one
 +// or more contributor license agreements.  See the NOTICE file
 +// distributed with this work for additional information
@@ -3921,7 +3967,7 @@ index 0000000..bd04f90
 +    if (label_names.empty() || !dumper->dump_comment(name(), METRIC_TYPE_GAUGE)) {
 +        return 0;
 +    }
-+    size_t n = 0;
++    std::vector<std::pair<std::string, std::string>> v;
 +    for (auto &label_name : label_names) {
 +        T* bvar = get_stats_impl(label_name);
 +        if (!bvar) {
@@ -3931,12 +3977,10 @@ index 0000000..bd04f90
 +        bvar->describe(oss, options->quote_string);
 +        std::ostringstream oss_key;
 +        make_dump_key(oss_key, label_name);
-+        if (!dumper->dump(oss_key.str(), oss.str())) {
-+            continue;
-+        }
-+        n++;
++        v.push_back(std::make_pair(oss_key.str(), oss.str()));
 +    }
-+    return n;
++
++    return dumper->dumps(v);
 +}
 +
 +template <>
@@ -3947,7 +3991,8 @@ index 0000000..bd04f90
 +    if (label_names.empty()) {
 +        return 0;
 +    }
-+    size_t n = 0;
++
++    std::vector<std::vector<std::pair<std::string, butil::StringPiece>>> vv(4);
 +    for (auto &label_name : label_names) {
 +        bvar::LatencyRecorder* bvar = get_stats_impl(label_name);
 +        if (!bvar) {
@@ -3961,31 +4006,25 @@ index 0000000..bd04f90
 +        // latency
 +        std::ostringstream oss_latency_key;
 +        make_dump_key(oss_latency_key, label_name, "_latency");
-+        if (dumper->dump(oss_latency_key.str(), std::to_string(bvar->latency()))) {
-+            n++;
-+        }
++        vv[0].push_back(std::make_pair(oss_latency_key.str(), std::to_string(bvar->latency())));
++
 +        // latency_percentiles
 +        // p1/p2/p3
 +        int latency_percentiles[3] {FLAGS_bvar_latency_p1, FLAGS_bvar_latency_p2, FLAGS_bvar_latency_p3};
 +        for (auto lp : latency_percentiles) {
 +            std::ostringstream oss_lp_key;
 +            make_dump_key(oss_lp_key, label_name, "_latency", lp);
-+            if (dumper->dump(oss_lp_key.str(), std::to_string(bvar->latency_percentile(lp / 100.0)))) {
-+                n++;
-+            }
++            vv[0].push_back(std::make_pair(oss_lp_key.str(), std::to_string(bvar->latency_percentile(lp / 100.0))));
 +        }
 +        // 999
 +        std::ostringstream oss_p999_key;
 +        make_dump_key(oss_p999_key, label_name, "_latency", 999);
-+        if (dumper->dump(oss_p999_key.str(), std::to_string(bvar->latency_percentile(0.999)))) {
-+            n++;
-+        }
++        vv[0].push_back(std::make_pair(oss_p999_key.str(), std::to_string(bvar->latency_percentile(0.999))));
++
 +        // 9999
 +        std::ostringstream oss_p9999_key;
 +        make_dump_key(oss_p9999_key, label_name, "_latency", 9999);
-+        if (dumper->dump(oss_p9999_key.str(), std::to_string(bvar->latency_percentile(0.9999)))) {
-+            n++;
-+        }
++        vv[0].push_back(std::make_pair(oss_p9999_key.str(), std::to_string(bvar->latency_percentile(0.9999))));
 +
 +        // max_latency comment
 +        if (!dumper->dump_comment(name() + "_max_latency", METRIC_TYPE_GAUGE)) {
@@ -3994,9 +4033,7 @@ index 0000000..bd04f90
 +        // max_latency
 +        std::ostringstream oss_max_latency_key;
 +        make_dump_key(oss_max_latency_key, label_name, "_max_latency");
-+        if (dumper->dump(oss_max_latency_key.str(), std::to_string(bvar->max_latency()))) {
-+            n++;
-+        }
++        vv[1].push_back(std::make_pair(oss_max_latency_key.str(), std::to_string(bvar->max_latency())));
 +        
 +        // qps comment
 +        if (!dumper->dump_comment(name() + "_qps", METRIC_TYPE_GAUGE)) {
@@ -4005,20 +4042,21 @@ index 0000000..bd04f90
 +        // qps
 +        std::ostringstream oss_qps_key;
 +        make_dump_key(oss_qps_key, label_name, "_qps");
-+        if (dumper->dump(oss_qps_key.str(), std::to_string(bvar->qps()))) {
-+            n++;
-+        }
++        vv[2].push_back(std::make_pair(oss_qps_key.str(), std::to_string(bvar->qps())));
 +
-+        // qps comment
++        // count comment
 +        if (!dumper->dump_comment(name() + "_count", METRIC_TYPE_COUNTER)) {
 +            continue;
 +        }
 +        // count
 +        std::ostringstream oss_count_key;
 +        make_dump_key(oss_count_key, label_name, "_count");
-+        if (dumper->dump(oss_count_key.str(), std::to_string(bvar->count()))) {
-+            n++;
-+        }
++        vv[3].push_back(std::make_pair(oss_count_key.str(), std::to_string(bvar->count())));
++    }
++
++    size_t n = 0;
++    for (auto& v : vv) {
++        n += dumper->dumps(v);
 +    }
 +    return n;
 +}
@@ -4810,13 +4848,23 @@ index d9f7273..15cdf30 100644
      name->reserve(name->size() + src.size() + 8/*just guess*/);
      for (const char* p = src.data(); p != src.data() + src.size(); ++p) {
 diff --git a/src/bvar/variable.h b/src/bvar/variable.h
-index 192484c..482f3b1 100644
+index 192484c..1ee4236 100644
 --- a/src/bvar/variable.h
 +++ b/src/bvar/variable.h
-@@ -53,6 +53,9 @@ public:
+@@ -53,6 +53,19 @@ public:
      virtual ~Dumper() { }
      virtual bool dump(const std::string& name,
                        const butil::StringPiece& description) = 0;
++    virtual size_t dumps(const std::vector<std::pair<std::string, std::string>>& v) {
++        size_t n = 0;
++        for (auto& vi : v) {
++            if (dump(vi.first, vi.second)) {
++                n++;
++            }
++        }
++        return n;
++    }
++
 +    virtual bool dump_comment(const std::string&, const std::string& /*type*/) {
 +        return true;
 +    }
