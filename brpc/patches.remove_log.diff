@@ -854,7 +854,7 @@ index abc2b8e..64b2d3f 100644
  #include "brpc/controller.h"                // Controller
  #include "brpc/closure_guard.h"             // ClosureGuard
 diff --git a/src/brpc/builtin/prometheus_metrics_service.cpp b/src/brpc/builtin/prometheus_metrics_service.cpp
-index 5eddb1a..dc31b86 100644
+index 5eddb1a..6b9b850 100644
 --- a/src/brpc/builtin/prometheus_metrics_service.cpp
 +++ b/src/brpc/builtin/prometheus_metrics_service.cpp
 @@ -25,6 +25,8 @@
@@ -891,7 +891,7 @@ index 5eddb1a..dc31b86 100644
 +
 +        if (first) {
 +            auto pos = vi.first.find('{');
-+            auto name = vi.first.substr(pos);
++            auto name = vi.first.substr(0, pos);
 +            *_os << "# HELP " << name << '\n'
 +                 << "# TYPE " << name << " gauge" << '\n';
 +        }
