@@ -3748,7 +3748,7 @@ index 0000000..068a982
 +#endif // BVAR_MULTI_DIMENSION_H
 diff --git a/src/bvar/multi_dimension_inl.h b/src/bvar/multi_dimension_inl.h
 new file mode 100644
-index 0000000..264b936
+index 0000000..d63cc0a
 --- /dev/null
 +++ b/src/bvar/multi_dimension_inl.h
 @@ -0,0 +1,367 @@
@@ -3992,7 +3992,7 @@ index 0000000..264b936
 +        return 0;
 +    }
 +
-+    std::vector<std::vector<std::pair<std::string, butil::StringPiece>>> vv(4);
++    std::vector<std::vector<std::pair<std::string, std::string>>> vv(4);
 +    for (auto &label_name : label_names) {
 +        bvar::LatencyRecorder* bvar = get_stats_impl(label_name);
 +        if (!bvar) {
